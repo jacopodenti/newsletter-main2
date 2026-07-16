@@ -1,0 +1,8 @@
+vuoti residui: 0 | articoli: 1418
+  0/1418
+  320/1418
+  640/1418
+  960/1418
+  1280/1418
+Salvato corpus_vectors_full.npz  shape (1418, 3072)
+FINITO

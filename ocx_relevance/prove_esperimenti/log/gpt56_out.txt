@@ -1,0 +1,27 @@
+Articoli: 1418 | modello gpt-5.6-sol
+  100/1418
+  200/1418
+  300/1418
+  400/1418
+  500/1418
+  600/1418
+  700/1418
+  800/1418
+  900/1418
+  1000/1418
+  1100/1418
+  1200/1418
+  1300/1418
+  1400/1418
+
+[5.6-sol] Si=47 No=1371 err=0 | token 865181 in + 89892 out
+
+=== CONFRONTO 5.6-sol vs 5.4 ===
+  Si: 5.6-sol=47  |  5.4=53
+  accordo: 1396  disaccordo: 12
+  entrambi Si: 44 | solo 5.6-sol Si: 3 | solo 5.4 Si: 9
+  [5.6-sol] su 50 note: TP=11 FP=0 FN=15  precisione=100% recall=42%
+  [5.4] su 50 note: TP=11 FP=0 FN=15  precisione=100% recall=42%
+Foglio 'Ranking_LLM_confronto' scritto.
+
+FINITO

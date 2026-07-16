@@ -1,0 +1,129 @@
+# Environment & secrets
+.env
+.env.*
+.envrc
+
+# Excel lock files
+~$*
+
+# Python
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+__pycache__/
+*.py[codz]
+*$py.class
+*.so
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+__pypackages__/
+
+# Data & outputs (generati a runtime)
+data/
+output/
+!output/.gitkeep
+
+# Models (file binari pesanti, rigenerare con retrain)
+models/
+
+# macOS
+.DS_Store
+
+# Claude Code
+.claude/
+
+# Tests / coverage
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py.cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Packaging / installers
+pip-log.txt
+pip-delete-this-directory.txt
+*.manifest
+*.spec
+
+# Jupyter
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# Type checkers
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+cython_debug/
+
+# Misc tools
+.pdm-python
+.pdm-build/
+.pixi
+.ruff_cache/
+.pypirc
+.abstra/
+.ropeproject
+.spyderproject
+.spyproject
+tempCodeRunnerFile.py
+marimo/_static/
+marimo/_lsp/
+__marimo__/
+
+# Streamlit secrets
+.streamlit/secrets.toml
+
+# Translations
+*.mo
+*.pot
+
+# Sphinx
+docs/_build/
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# Redis / MQ
+*.rdb
+*.aof
+*.pid
+mnesia/
+rabbitmq/
+rabbitmq-data/
+activemq-data/
+
+# SageMath
+*.sage.py

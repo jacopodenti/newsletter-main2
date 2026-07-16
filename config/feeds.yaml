@@ -1,0 +1,212 @@
+feeds:
+  - url: https://feeds.feedburner.com/CMSWire
+    name: CMSWire
+
+  - url: https://www.forrester.com/blogs/feed
+    name: Forrester
+
+  - url: https://www.a16z.news/feed
+    name: A16
+    
+
+  - url: https://martech.org/feed
+    name: MarTech
+
+  - url: https://customerthink.com/feed/
+    name: CustomerThink
+
+  - url: https://www.cxtoday.com/feed
+    name: CX Today
+
+  - url: https://www.engagecustomer.com/blog/rss.xml
+    name: Engage Customer
+
+  - url: https://www.agendadigitale.eu/feed/
+    name: Agenda Digitale
+
+  - url: https://www.ai4business.it/feed/
+    name: AI4Business
+
+  - url: https://www.corrierecomunicazioni.it/feed/
+    name: CorCom
+
+  - url: https://www.cybersecurity360.it/feed/
+    name: Cybersecurity360
+
+  - url: https://www.digital4.biz/feed/
+    name: Digital4
+
+  - url: https://www.economyup.it/feed/
+    name: EconomyUp
+
+  - url: https://www.esg360.it/feed/
+    name: ESG360
+
+  - url: https://www.healthtech360.it/feed/
+    name: HealthTech360
+
+  - url: https://www.innovationpost.it/feed/
+    name: Innovation Post
+
+  - url: https://www.pagamentidigitali.it/feed/
+    name: Pagamenti Digitali
+
+  - url: https://www.techcompany360.it/feed/
+    name: TechCompany360
+
+  - url: https://www.zerounoweb.it/feed/
+    name: ZeroUno
+
+  - url: https://www.quotidianosanita.it/feed/
+    name: QuotidianoSanità.it
+
+  - url: https://retailtechinnovationhub.com/?format=rss
+    name: retailtechinnovationhub.com
+
+  - url: https://www.datacenterdynamics.com/en/rss/
+    name: Data Center Dynamics
+
+  - url: https://panoramadellasanita.it/site/feed/
+    name: PanoramaDellaSanità.it
+
+  - url: https://www.dataversity.net/articles/feed/
+    name: Dataversity
+
+  - url: https://www.wired.com/feed/rss
+    name: Wired
+
+  - url: https://www.finextra.com/rss/news.aspx
+    name: Finextra
+
+  - url: https://www.cybersecitalia.it/feed/
+    name: Cybersecurity Italia
+
+  - url: https://www.ilsole24ore.com/rss/tecnologia.xml
+    name: Il Sole 24 Ore
+
+  - url: https://www.ledgerinsights.com/feed/
+    name: ledgerinsights.com
+
+  - url: https://www.forbes.com/rss.xml
+    name: Forbes
+
+  - url: https://www.phocuswire.com/RSS/All-News
+    name: PhocusWire
+
+  - url: https://payloadspace.com/feed/
+    name: Payload
+
+  - url: https://cointelegraph.com/rss
+    name: Cointelegraph.com
+
+  - url: https://www.satellitetoday.com/feed/
+    name: Via Satellite
+
+  - url: https://spacenews.com/feed/
+    name: Space News
+
+  - url: https://www.healthcareitnews.com/home/feed
+    name: Healthcare IT News
+
+  - url: https://techcrunch.com/feed/
+    name: TechCrunch
+
+  - url: https://www.cio.com/feed/
+    name: CIO
+
+  - url: https://www.zdnet.com/news/rss.xml
+    name: Zdnet
+
+  - url: https://venturebeat.com/feed/
+    name: VentureBeat
+
+  - url: https://www.technologyreview.com/feed/
+    name: MIT Technology Review
+
+  - url: https://www.bloomberg.com/feed/podcast/etf-report.xml
+    name: Bloomberg
+
+  - url: https://www.reutersagency.com/feed/?best-topics=technology
+    name: Reuters
+
+  - url: https://www.cnbc.com/id/100003114/device/rss/rss.html
+    name: CNBC
+
+  - url: https://www.theverge.com/rss/index.xml
+    name: The Verge
+
+  - url: http://feeds.arstechnica.com/arstechnica/index
+    name: Ars Technica
+
+  - url: https://siliconangle.com/feed/
+    name: SiliconANGLE
+
+  - url: https://www.computerworld.com/feed/
+    name: Computerworld
+
+  - url: https://www.networkworld.com/feed/
+    name: NetworkWorld
+
+  - url: https://www.digitalhealth.net/news/feed/
+    name: Digital Health
+
+  - url: https://www.healthcaredive.com/feeds/news/
+    name: Healthcare Dive
+
+  - url: https://www.theregister.com/headlines.atom
+    name: The Register
+
+  - url: https://www.businessinsider.com/rss
+    name: Business Insider
+
+  - url: https://fortune.com/feed/
+    name: Fortune
+
+  - url: https://www.fastcompany.com/rss
+    name: Fast Company
+
+  - url: https://www.theguardian.com/technology/rss
+    name: The Guardian
+
+  - url: https://www.ft.com/rss/home
+    name: Financial Times
+
+  - url: http://feeds.bbci.co.uk/news/technology/rss.xml
+    name: BBC News
+
+  - url: https://www.aljazeera.com/xml/rss/all.xml
+    name: Al Jazeera
+
+  - url: https://www.engadget.com/rss.xml
+    name: Engadget
+
+  - url: https://gizmodo.com/rss
+    name: Gizmodo
+
+  - url: https://mashable.com/feed/
+    name: Mashable
+
+  - url: https://www.techradar.com/rss
+    name: TechRadar
+
+  - url: https://www.informationweek.com/rss.xml
+    name: InformationWeek
+
+  - url: https://www.emarketer.com/rss
+    name: eMarketer
+
+  - url: https://www.corriere.it/dynamic-feed/rss/section/Scienze.xml
+    name: Corriere della Sera - Tecnologia
+
+  - url: https://www.repubblica.it/rss/tecnologia/rss2.0.xml
+    name: La Repubblica - Tecnologia
+
+  - url: https://news.mit.edu/rss/topic/technology
+    name: MIT News - Technology
+
+  - url: https://economictimes.indiatimes.com/tech/rssfeeds/13357270.cms
+    name: The Economic Times - Tech
+
+  - url: https://www.ansa.it/sito/notizie/tecnologia/tecnologia_rss.xml
+    name: ANSA - Tecnologia
+

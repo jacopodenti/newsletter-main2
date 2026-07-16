@@ -1,0 +1,21 @@
+Articoli: 1418
+  100/1418  (full=121 fallback=0)
+  200/1418  (full=214 fallback=0)
+  300/1418  (full=288 fallback=28)
+  400/1418  (full=366 fallback=74)
+  500/1418  (full=419 fallback=82)
+  600/1418  (full=498 fallback=112)
+  700/1418  (full=580 fallback=121)
+  800/1418  (full=666 fallback=161)
+  900/1418  (full=720 fallback=184)
+  1000/1418  (full=822 fallback=184)
+  1100/1418  (full=918 fallback=187)
+  1200/1418  (full=1013 fallback=187)
+  1300/1418  (full=1111 fallback=191)
+  1400/1418  (full=1215 fallback=193)
+
+=== RISULTATO ===
+  testo intero estratto: 1218/1418 (86%)
+  fallback al sommario:  190/1418
+  lunghezza testo intero: mediana 4028 car (vs sommario ~153) -> ~671 parole
+FINITO

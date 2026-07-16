@@ -1,0 +1,9 @@
+feedparser
+openai
+openpyxl
+python-dotenv
+pyyaml
+streamlit
+scikit-learn
+numpy
+pandas

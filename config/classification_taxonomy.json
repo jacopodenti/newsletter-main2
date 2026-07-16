@@ -1,0 +1,236 @@
+{
+  "content_type": [
+    {
+      "slug": "analysis",
+      "descrizione": "Articolo interpretativo o esplorativo: comprende analisi di tendenze emergenti, commenti e opinioni di esperti o analisti, articoli di punto di vista, interviste a manager e ricercatori, editoriali e conference recap. Il tratto comune è l'interpretazione o discussione di un tema, non la comunicazione di dati primari né l'annuncio di un prodotto."
+    },
+    {
+      "slug": "research_report",
+      "descrizione": "Pubblicazione di dati e risultati derivanti da ricerche, survey, studi di mercato o report istituzionali. Include statistiche, classifiche, benchmark e analisi quantitative su fenomeni digitali."
+    },
+    {
+      "slug": "regulation",
+      "descrizione": "Notizia relativa a normative, leggi, direttive europee o nazionali, linee guida regolatorie o decisioni di autorità pubbliche che impattano il settore digitale, tecnologico o dell'innovazione."
+    },
+    {
+      "slug": "vendor_announcement",
+      "descrizione": "Comunicato o annuncio da parte di un'azienda tecnologica o fornitore di soluzioni: lancio di prodotto, nuova funzionalità, aggiornamento di piattaforma, acquisizione, partnership commerciale, accordo strategico tra aziende o espansione."
+    },
+    {
+      "slug": "case_study",
+      "descrizione": "Descrizione di un progetto, implementazione o esperienza concreta realizzata da una o più organizzazioni. Focalizzato su risultati misurabili, metodologie adottate e lezioni apprese."
+    }
+  ],
+  "target_audience": [
+    {
+      "slug": "executive",
+      "descrizione": "C-suite, CEO, CIO, CDO e dirigenti aziendali. Contenuti strategici ad alto livello: visione, investimenti, trasformazione organizzativa, governance dell'innovazione digitale."
+    },
+    {
+      "slug": "marketing",
+      "descrizione": "CMO, responsabili marketing, brand manager, digital marketer. Contenuti su advertising, comunicazione digitale, customer engagement, martech, personalizzazione e campagne."
+    },
+    {
+      "slug": "sales",
+      "descrizione": "Direttori commerciali, account manager, sales operations. Contenuti su CRM, abilitazione alle vendite, pricing, lead generation, strumenti digitali per il ciclo di vendita B2B e B2C."
+    },
+    {
+      "slug": "customer_care",
+      "descrizione": "Responsabili customer service, contact center manager, operatori di supporto. Contenuti su piattaforme di assistenza, chatbot, automazione del supporto, customer satisfaction e NPS."
+    },
+    {
+      "slug": "it_data",
+      "descrizione": "CTO, IT manager, data engineer, data scientist, architect. Contenuti tecnici su infrastrutture, cloud, sicurezza, dati, AI/ML, integrazione sistemi e sviluppo software."
+    },
+    {
+      "slug": "cross_functional",
+      "descrizione": "Contenuto rilevante per più funzioni aziendali contemporaneamente. Temi trasversali come digital transformation, intelligenza artificiale applicata, innovazione organizzativa o sostenibilità digitale."
+    },
+    {
+      "slug": "research",
+      "descrizione": "Ricercatori, analisti di mercato, accademici e professionisti dell'innovazione. Contenuti metodologici, scientifici, con dati primari, framework concettuali o approfondimenti specialistici."
+    }
+  ],
+  "macro_topics": [
+    {
+      "slug": "generative_ai",
+      "descrizione": "Tecnologie di intelligenza artificiale generativa: large language model (LLM), modelli di generazione di testo, immagini, video e codice. Include ChatGPT, GPT-4, Gemini, Claude, DALL-E, Stable Diffusion e casi d'uso enterprise di GenAI."
+    },
+    {
+      "slug": "ai_agents",
+      "descrizione": "Sistemi di AI autonomi capaci di pianificare ed eseguire azioni multi-step senza supervisione continua. Include agenti conversazionali avanzati, orchestrazione di workflow AI, agentic AI e sistemi multi-agente."
+    },
+    {
+      "slug": "machine_learning",
+      "descrizione": "Apprendimento automatico supervisionato e non supervisionato, deep learning, reti neurali, modelli predittivi e classificatori. Esclude GenAI quando è il focus principale."
+    },
+    {
+      "slug": "automation",
+      "descrizione": "Automazione di processi aziendali attraverso RPA (Robotic Process Automation), workflow automation, intelligent automation e orchestrazione di sistemi. Focus su efficienza operativa e riduzione del lavoro manuale."
+    },
+    {
+      "slug": "robotics",
+      "descrizione": "Robotica industriale e collaborativa, robot mobili autonomi (AMR/AGV), esoscheletri, droni fisici. Applicazioni in manifattura, logistica, sanità e ambienti non strutturati."
+    },
+    {
+      "slug": "iot_connected_devices",
+      "descrizione": "Internet of Things, sensori connessi, dispositivi smart, industrial IoT (IIoT), edge computing applicato all'IoT. Include smart home, wearable, connettività industriale e gestione dei dati da dispositivi."
+    },
+    {
+      "slug": "blockchain_web3",
+      "descrizione": "Tecnologie blockchain, distributed ledger, smart contract, tokenizzazione di asset, NFT, DeFi, Web3 e identità decentralizzata. Applicazioni in supply chain, finanza e tracciabilità."
+    },
+    {
+      "slug": "quantum_technologies",
+      "descrizione": "Quantum computing, quantum communication e quantum sensing. Algoritmi quantistici, qubit, crittografia post-quantistica e applicazioni emergenti in ottimizzazione, simulazione e sicurezza."
+    },
+    {
+      "slug": "xr_immersive",
+      "descrizione": "Extended Reality: realtà virtuale (VR), realtà aumentata (AR), realtà mista (MR), metaverso e spatial computing. Applicazioni in formazione, retail, intrattenimento, industria e collaborazione remota."
+    },
+    {
+      "slug": "connectivity_5g",
+      "descrizione": "Reti 5G, connettività avanzata, network slicing, edge computing mobile, private network e applicazioni industriali del 5G. Include impatti su IoT, automazione e mobilità connessa."
+    },
+    {
+      "slug": "cloud_infrastructure",
+      "descrizione": "Servizi cloud pubblici, privati e ibridi, infrastruttura as-a-service (IaaS, PaaS, SaaS), data center, cloud sovereignty, containerizzazione e architetture cloud-native."
+    },
+    {
+      "slug": "cybersecurity",
+      "descrizione": "Sicurezza informatica, protezione da attacchi cyber, threat intelligence, gestione del rischio, zero trust, vulnerability management, SIEM, endpoint protection e risposta agli incidenti."
+    },
+    {
+      "slug": "data_management",
+      "descrizione": "Governance del dato, data quality, data catalog, data lakehouse, master data management, integrazione dati e architetture data-centric. Esclude analytics quando è il focus principale."
+    },
+    {
+      "slug": "analytics_bi",
+      "descrizione": "Business intelligence, analisi dei dati, dashboard, reporting, data visualization, advanced analytics e decision intelligence. Strumenti e pratiche per trasformare i dati in insight aziendali."
+    },
+    {
+      "slug": "digital_identity",
+      "descrizione": "Identità digitale, autenticazione, SPID, CIE, eIDAS, verifiable credentials, identity provider e gestione degli accessi (IAM). Include privacy by design e conformità normativa sull'identità."
+    },
+    {
+      "slug": "payments_fintech",
+      "descrizione": "Pagamenti digitali, open banking, fintech, insurtech, BNPL, criptovalute come mezzo di pagamento, POS contactless, instant payment e regolamentazione finanziaria digitale."
+    },
+    {
+      "slug": "customer_experience",
+      "descrizione": "Progettazione e ottimizzazione dell'esperienza cliente end-to-end, voice of customer, journey mapping, CX strategy, NPS, CSAT e misurazione della soddisfazione. Visione olistica del rapporto cliente-azienda."
+    },
+    {
+      "slug": "customer_service",
+      "descrizione": "Gestione operativa del servizio clienti, contact center, helpdesk, ticketing, escalation management, self-service e automazione del supporto. Focus su risoluzione dei problemi e efficienza operativa."
+    },
+    {
+      "slug": "personalization",
+      "descrizione": "Personalizzazione di contenuti, offerte, comunicazioni e esperienze in base al profilo e comportamento dell'utente. Include recommendation engine, segmentazione avanzata e dynamic content."
+    },
+    {
+      "slug": "loyalty",
+      "descrizione": "Programmi fedeltà, retention dei clienti, loyalty management, gamification, reward e incentivi. Strategie per aumentare il lifetime value del cliente e ridurre il churn."
+    },
+    {
+      "slug": "marketing_advertising",
+      "descrizione": "Marketing digitale, advertising online, programmatic, SEO/SEM, social advertising, influencer marketing, content marketing e misurazione delle campagne. Include martech stack e marketing automation."
+    },
+    {
+      "slug": "social_media",
+      "descrizione": "Piattaforme social, strategie di social media marketing, community management, social commerce e analisi del sentiment. Include trend su TikTok, Instagram, LinkedIn e piattaforme emergenti."
+    },
+    {
+      "slug": "digital_content",
+      "descrizione": "Produzione e distribuzione di contenuti digitali: video, podcast, newsletter, streaming, gaming, ebook e audio. Include creator economy, content monetization e piattaforme editoriali."
+    },
+    {
+      "slug": "omnichannel",
+      "descrizione": "Integrazione e coordinamento di canali fisici e digitali nella relazione con il cliente. Include unified commerce, click-and-collect, store digitalization e orchestrazione dell'esperienza cross-canale."
+    },
+    {
+      "slug": "ecommerce",
+      "descrizione": "Commercio elettronico B2C e B2B, marketplace, direct-to-consumer, social commerce, conversational commerce e ottimizzazione del funnel di acquisto online."
+    },
+    {
+      "slug": "retail_innovation",
+      "descrizione": "Innovazione nel punto vendita fisico e digitale: smart store, computer vision applicata al retail, digital signage, self-checkout, autonomous store e retail media."
+    },
+    {
+      "slug": "b2b_digitalization",
+      "descrizione": "Digitalizzazione dei processi business-to-business: fatturazione elettronica, EDI, portali fornitori, supply chain digitale, procurement digitale e gestione documentale B2B."
+    },
+    {
+      "slug": "supply_chain",
+      "descrizione": "Gestione della catena di fornitura, supply chain visibility, demand planning, supplier management, resilienza della supply chain e impatto delle tecnologie digitali sulla filiera."
+    },
+    {
+      "slug": "logistics",
+      "descrizione": "Logistica, magazzino automatizzato, last-mile delivery, tracking delle spedizioni, contract logistics, reverse logistics e ottimizzazione dei trasporti."
+    },
+    {
+      "slug": "mobility_automotive",
+      "descrizione": "Mobilità connessa, veicoli autonomi, ADAS, infotainment, fleet management, smart mobility urbana, MaaS (Mobility as a Service) e transizione verso l'elettrico."
+    },
+    {
+      "slug": "smart_city",
+      "descrizione": "Città intelligenti, infrastrutture urbane digitali, gestione dei servizi pubblici tramite IoT e dati, illuminazione smart, mobilità urbana e partecipazione civica digitale."
+    },
+    {
+      "slug": "sustainability",
+      "descrizione": "Sostenibilità ambientale e sociale abilitata dal digitale, ESG, carbon footprint, economia circolare, green IT e rendicontazione di sostenibilità. Include Digital for Green e Green for Digital."
+    },
+    {
+      "slug": "circular_economy",
+      "descrizione": "Modelli di economia circolare, riuso, riciclo, product-as-a-service, tracciabilità del ciclo di vita del prodotto e piattaforme di seconda mano. Focus su riduzione degli sprechi nella filiera."
+    },
+    {
+      "slug": "agrifood",
+      "descrizione": "Innovazione digitale nella filiera agricola e agroalimentare: agricoltura di precisione, tracciabilità alimentare, droni in campo, IoT agricolo e sostenibilità della produzione alimentare."
+    },
+    {
+      "slug": "healthtech",
+      "descrizione": "Tecnologia digitale applicata alla sanità: telemedicina, cartella clinica elettronica, wearable medicali, AI diagnostica, fascicolo sanitario elettronico e digital therapeutics."
+    },
+    {
+      "slug": "edtech",
+      "descrizione": "Tecnologie per la formazione e l'apprendimento: piattaforme e-learning, LMS, microlearning, formazione aziendale digitale, realtà virtuale educativa e valutazione delle competenze."
+    },
+    {
+      "slug": "hr_future_of_work",
+      "descrizione": "Futuro del lavoro, trasformazione della funzione HR, people analytics, digital recruiting, performance management digitale, wellbeing e nuovi modelli organizzativi abilitati dalla tecnologia."
+    },
+    {
+      "slug": "smart_working",
+      "descrizione": "Lavoro agile e da remoto, strumenti di collaboration digitale, hybrid work, digital workplace, policy di smart working e impatti su produttività e cultura aziendale."
+    },
+    {
+      "slug": "skills_talent",
+      "descrizione": "Competenze digitali, upskilling e reskilling, digital talent, gap di competenze tecnologiche, formazione continua e strategie aziendali per attrarre e trattenere talenti digitali."
+    },
+    {
+      "slug": "startup_ecosystem",
+      "descrizione": "Ecosistema startup e scaleup, venture capital, open innovation, acceleratori, incubatori, corporate venturing e tendenze degli investimenti in tech in Italia e nel mondo."
+    },
+    {
+      "slug": "regulation_policy",
+      "descrizione": "Normative digitali, policy europee e nazionali, AI Act, GDPR, NIS2, Data Act, DSA, DMA e impatti regolatori sull'innovazione tecnologica e sui modelli di business."
+    },
+    {
+      "slug": "privacy_data_protection",
+      "descrizione": "Protezione dei dati personali, GDPR compliance, data breach, cookie policy, consenso informato, privacy by design e ruolo del DPO. Focus sulla tutela dei diritti dell'interessato."
+    },
+    {
+      "slug": "digital_pa",
+      "descrizione": "Digitalizzazione della Pubblica Amministrazione italiana ed europea: PNRR digitale, SPID, CIE, servizi digitali ai cittadini, interoperabilità tra enti e smart working nella PA."
+    },
+    {
+      "slug": "space_economy",
+      "descrizione": "Economia spaziale, satelliti commerciali, osservazione della Terra, connettività satellitare, NewSpace e integrazione tra tecnologie spaziali e applicazioni digitali terrestri."
+    },
+    {
+      "slug": "digital_transformation",
+      "descrizione": "Trasformazione digitale delle organizzazioni in senso ampio: cultura digitale, change management, investimenti IT, roadmap di innovazione e misurazione del valore della digitalizzazione. Usare solo quando nessun topic più specifico è applicabile."
+    }
+  ]
+}

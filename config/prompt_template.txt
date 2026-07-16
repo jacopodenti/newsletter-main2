@@ -1,0 +1,168 @@
+You are classifying RSS news for research observatories.
+
+Analyze the following news item and return ONLY valid JSON.
+
+News item:
+Title: {title}
+Summary: {summary}
+Link: {link}
+Published date: {published_date}
+
+Your tasks:
+1. Assign from 0 to 5 relevant observatories.
+2. Assign exactly 1 content_type.
+3. Assign exactly 1 target_audience.
+4. Assign from 1 to 3 macro_topics.
+5. Write a short reason in Italian.
+
+Observatories must be chosen only from this list (use the slug values):
+{osservatori_list}
+
+If no observatory is relevant, return an empty array.
+
+content_type must be one of:
+- trend_article
+- case_study
+- vendor_announcement
+- research_report
+- opinion_analysis
+- regulation
+- interview
+- partnership_event
+
+target_audience must be one of:
+- executive
+- marketing
+- sales
+- customer_care
+- it_data
+- cross_functional
+- research
+
+macro_topics must be chosen only from this list and must be different from observatory names:
+  "generative_ai",
+  "ai_agents",
+  "machine_learning",
+  "automation",
+  "robotics",
+  "iot_connected_devices",
+  "blockchain_web3",
+  "quantum_technologies",
+  "xr_immersive",
+  "connectivity_5g",
+  "cloud_infrastructure",
+  "cybersecurity",
+  "data_management",
+  "analytics_bi",
+  "digital_identity",
+  "payments_fintech",
+  "customer_experience",
+  "customer_service",
+  "personalization",
+  "loyalty",
+  "marketing_advertising",
+  "social_media",
+  "digital_content",
+  "omnichannel",
+  "ecommerce",
+  "retail_innovation",
+  "b2b_digitalization",
+  "supply_chain",
+  "logistics",
+  "mobility_automotive",
+  "smart_city",
+  "sustainability",
+  "circular_economy",
+  "agrifood",
+  "healthtech",
+  "edtech",
+  "hr_future_of_work",
+  "smart_working",
+  "skills_talent",
+  "startup_ecosystem",
+  "regulation_policy",
+  "privacy_data_protection",
+  "digital_pa",
+  "space_economy",
+  "digital_transformation"
+
+Rules:
+- Observatories are organizational buckets. Assign only those with clear, direct relevance. If unsure, prefer fewer or none.
+- Macro topics are transversal editorial themes.
+- When two macro_topics overlap, choose the most specific one.
+- reason must be 1-2 sentences in Italian, concrete and specific.
+- Never use values outside the provided lists.
+- If input fields are missing, classify based on available data only.
+- Do not include input fields in the output.
+- Return JSON only, no markdown.
+
+Output format:
+{
+  "observatories": ["slug-one", "slug-two", "slug-three", "slug-four", "slug-five"],
+  "content_type": "trend_article",
+  "target_audience": "cross_functional",
+  "macro_topics": ["generative_ai", "customer_service"],
+  "reason": "La news tratta..."
+}
+
+Examples:
+
+Input:
+Title: McKinsey: la GenAI trasformerà il 70% dei processi aziendali italiani entro il 2027
+Summary: Un rapporto McKinsey analizza l'impatto della GenAI su produttività, automazione del lavoro, adozione nelle PMI italiane e implicazioni per HR e cybersecurity.
+Output:
+{
+  "observatories": ["artificial-intelligence", "intelligent-business-process-automation", "innovazione-digitale-nelle-pmi", "hr-innovation-practice", "cybersecurity-data-protection"],
+  "content_type": "research_report",
+  "target_audience": "executive",
+  "macro_topics": ["generative_ai", "automation", "skills_talent"],
+  "reason": "Il rapporto analizza l'impatto della GenAI sui processi aziendali italiani, con implicazioni dirette per l'automazione, le PMI, la gestione HR e la sicurezza informatica."
+}
+
+Input:
+Title: Zara integra checkout unificato online/offline con personalizzazione AI in-store
+Summary: Il retailer lancia un sistema che unifica i dati cliente tra canale fisico e digitale, abilitando raccomandazioni personalizzate in tempo reale nei negozi.
+Output:
+{
+  "observatories": ["omnichannel-customer-experience", "innovazione-digitale-nel-retail", "ecommerce-b2c"],
+  "content_type": "case_study",
+  "target_audience": "marketing",
+  "macro_topics": ["omnichannel", "personalization", "retail_innovation"],
+  "reason": "L'iniziativa di Zara è un caso concreto di integrazione omnicanale con AI applicata alla customer experience nel retail fisico e digitale."
+}
+
+Input:
+Title: BCE: instant payment obbligatorio per le imprese europee entro il 2026
+Summary: Le nuove linee guida della Banca Centrale Europea impongono l'adozione dell'instant payment nelle transazioni B2B entro la fine del 2026.
+Output:
+{
+  "observatories": ["b2b-payments", "innovative-payments"],
+  "content_type": "regulation",
+  "target_audience": "executive",
+  "macro_topics": ["payments_fintech", "regulation_policy"],
+  "reason": "La normativa BCE impatta direttamente il mercato dei pagamenti B2B e le soluzioni di instant payment, con obblighi operativi per le imprese europee."
+}
+
+Input:
+Title: La nazionale italiana batte la Francia 2-1 grazie al gol di Immobile al 90°
+Summary: Vittoria sofferta degli azzurri in amichevole a Parigi. Immobile decisivo nel finale.
+Output:
+{
+  "observatories": [],
+  "content_type": "trend_article",
+  "target_audience": "cross_functional",
+  "macro_topics": ["digital_transformation"],
+  "reason": "La notizia riguarda un evento sportivo senza alcuna rilevanza per gli osservatori di innovazione digitale."
+}
+
+Input:
+Title: Digital Twin nella logistica: -18% di emissioni CO2 nelle filiere manifatturiere italiane
+Summary: Uno studio condotto su 40 aziende italiane dimostra come l'adozione di Digital Twin nei processi logistici riduca significativamente le emissioni e ottimizzi i flussi di filiera.
+Output:
+{
+  "observatories": ["supply-chain-planning", "contract-logistics-gino-marchet", "digital-sustainable"],
+  "content_type": "research_report",
+  "target_audience": "it_data",
+  "macro_topics": ["supply_chain", "sustainability", "logistics"],
+  "reason": "Lo studio quantifica l'impatto ambientale dei Digital Twin nella logistica italiana, con rilevanza diretta per la pianificazione della supply chain e la sostenibilità."
+}

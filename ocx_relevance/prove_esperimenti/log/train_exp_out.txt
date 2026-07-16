@@ -1,0 +1,11 @@
+Training set: 159  positivi=132  negativi=27
+  (editoriali +106pos/3neg, 50-set +26pos/24neg)
+
+k-fold (5x20) AUC:
+  kNN k=3   : 0.904 +/- 0.012
+  LogReg    : 0.905 +/- 0.005
+
+Soglia pulita RICALIBRATA: 0.179  (prima era 0.143 sui soli 50)
+  sopra soglia: 36 articoli, di cui positivi 36/36
+
+Salvato models/train_expanded.npz (vettori + label del set espanso)

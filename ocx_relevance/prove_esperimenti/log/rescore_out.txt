@@ -1,0 +1,26 @@
+riembeddo 1418 articoli...
+  0/1418
+  240/1418
+  480/1418
+  720/1418
+  960/1418
+  1200/1418
+Soglia 0.179 | articoli sopra: 38/1418
+Foglio 'Ranking_kNN_v2' scritto. Fogli: ['Config', 'Ranking', 'Dizionario', 'Dati', 'Ranking_CT020', 'Ranking_Embedding100', 'Ranking_kNN', 'Ranking_kNN_v2']
+
+TOP 15 (modello espanso):
+  # 1 +0.463 [Si  ]  OK  Top Strategies for Effective Customer Loyalty Reward
+  # 2 +0.422 [Si  ]  OK  Five Things Every CX Professional Needs to Know Abou
+  # 3 +0.418 [Si  ]  OK  Five Things Every CX Professional Needs to Know Abou
+  # 4 +0.406 [Si  ]  OK  Designing Seamless Customer Journeys in Customer Exp
+  # 5 +0.386 [Si  ]  OK  We're Getting CX All Wrong. Even the Name Doesn't Fi
+  # 6 +0.369 [Si  ]  OK  Agentic Customer Experience: The CX Architecture Bui
+  # 7 +0.355 [Si  ]  OK  Your Customer Insights Aren’t Wrong — They’re Just A
+  # 8 +0.312 [Si  ]  OK  Why Customer Signals Get Lost Between Marketing, Sup
+  # 9 +0.298 [Si  ]  OK  Unlocking the Future of Customer Experience: A Conve
+  #10 +0.297 [. ]  OK  Five Things Every CX Professional Needs to Know Abou
+  #11 +0.294 [Si  ]  OK  Why Workforce Schedules Drift – And How to Build Pla
+  #12 +0.274 [Si  ]  OK  Il Centauro del Marketing: strategie per non farsi m
+  #13 +0.272 [Si  ]  OK  Il rischio dell’AI nel marketing non è sostituire il
+  #14 +0.261 [Si  ]  OK  Patient flow management: l’impatto dell’orchestrazio
+  #15 +0.248 [. ]  OK  The Best CX Teams Don’t Just Practice Empathy. They 

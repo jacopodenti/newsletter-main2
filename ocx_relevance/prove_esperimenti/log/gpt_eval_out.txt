@@ -1,0 +1,35 @@
+Articoli etichettati: 50  (modello: gpt-5.4)
+  10/50...
+  20/50...
+  30/50...
+  40/50...
+  50/50...
+
+=== QUALITA vs ricercatrice ===
+  n valutati: 50  (errori: 0)
+  Accuracy : 70%
+  Precision: 100%   Recall: 42%   F1: 0.59
+  Confusion: TP=11 FP=0 FN=15 TN=24
+
+=== COSTO (token reali) ===
+  input tot: 27239  output tot: 3319  (50 articoli)
+  media/articolo: 545 in + 66 out
+  proiezione 1800/settimana: 0.98M input + 0.12M output token
+
+=== Falsi positivi (No detti Si) ===
+=== Falsi negativi (Si detti No) ===
+  conf=0.98  TIM Enterprise: la rivoluzione dell’AI pronta all’uso con soluzio
+  conf=0.95  Il rischio dell’AI nel marketing non è sostituire il lavoro, ma s
+  conf=0.99  Oltre i sistemi proprietari: la transizione cloud native di Sourc
+  conf=0.98  Gestione degli asset aziendali: come IBM Maximo aiuta le aziende 
+  conf=0.95  Il Centauro del Marketing: strategie per non farsi masticare dall
+  conf=0.92  Patient flow management: l’impatto dell’orchestrazione digitale n
+  conf=0.96  Social Media Engagement: le strategie efficaci su LinkedIn per B2
+  conf=0.98  Oltre il chatbot: Wilson.ai Agents e la nuova era dell’AI autonom
+  conf=0.99  AI e robotica in fabbrica: il ROI è il vero nodo, gli umanoidi an
+  conf=0.96  Fastweb + Vodafone: la data architecture si evolve con l’agentic 
+  conf=0.98  AI in azienda: guida alla strategia e alla misurazione del ROI
+  conf=0.92  Eudata e l’AI Agentica: perché l’orchestrazione è il nuovo campo 
+  conf=0.97  Hyntelo: l’intelligenza artificiale tra creatività certificata e 
+  conf=0.98  Data Governance in Sanità: quando il dato diventa infrastruttura 
+  conf=0.97  Hybrid integration, il ponte tra sistemi legacy, cloud e AI
