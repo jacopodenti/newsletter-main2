@@ -77,8 +77,19 @@ def main():
     cache = json.load(open(cache_path, encoding="utf-8")) if cache_path.exists() else {}
     log(f"  1) testo intero — {len(cache)} già in cache, scarico solo i mancanti...")
 
+    # Chiave della cache: URL canonicalizzato, non più il titolo — il titolo NON è una
+    # chiave di identità affidabile (audit 13/08: 4 casi reali di stesso titolo + stessa
+    # testata ma articoli diversi, es. rubriche ricorrenti con episodi diversi: con la
+    # cache a titolo uno di questi riceveva silenziosamente il testo dell'altro).
+    # MIGRAZIONE: le cache esistenti sono ancora chiavizzate per titolo — al primo run
+    # dopo questa modifica nessuna voce fa match, quindi si riscarica il testo intero di
+    # ogni articolo una volta sola (costo di rete, non di token: fetch_fulltext non
+    # chiama nessuna API a pagamento).
+    tracking_params = load_tracking_params()
+
     def f(a):
-        c = cache.get(a["title"])
+        key = canonicalize_url(a["link"], tracking_params)
+        c = cache.get(key)
         if c:
             a["full_text"], a["text_source"] = c["text"], c["source"]
         else:
@@ -87,7 +98,7 @@ def main():
     with ThreadPoolExecutor(max_workers=16) as ex:
         arts = list(ex.map(f, arts))
     for a in arts:
-        cache[a["title"]] = {"text": a["full_text"], "source": a["text_source"]}
+        cache[canonicalize_url(a["link"], tracking_params)] = {"text": a["full_text"], "source": a["text_source"]}
     json.dump(cache, open(cache_path, "w", encoding="utf-8"), ensure_ascii=False)
     nfull = sum(1 for a in arts if a["text_source"] == "full")
     log(f"     testo intero: {nfull}/{len(arts)}  (cache: {cache_path.name})")
