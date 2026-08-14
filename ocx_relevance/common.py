@@ -6,6 +6,7 @@ import os
 import re
 import html
 import time
+import hashlib
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -122,6 +123,37 @@ def canonicalize_url(url: str, tracking_params: set[str]) -> str:
     query = [(k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True) if k not in tracking_params]
     path = parts.path.rstrip("/") or "/"
     return urlunsplit((parts.scheme, parts.netloc.lower(), path, urlencode(query), ""))
+
+
+def dedup_by_content_hash(articles: list[dict]) -> tuple[list[dict], dict]:
+    """Deduplicazione ESATTA per contenuto: hash sha256 del testo normalizzato
+    (titolo + full_text), calcolato SOLO per gli articoli con text_source == 'full'. Se il
+    testo è in fallback sul summary RSS (articolo non scaricabile), l'hash del solo summary
+    rischierebbe di fondere articoli genuinamente diversi che condividono un summary
+    templato — es. le rubriche ricorrenti tipo "Tech Life"/"digital health coffee time
+    briefing" trovate nell'audit del 13/08, stesso summary-stile ma episodi diversi.
+    Meglio un duplicato non catturato che due articoli distinti fusi: questi articoli non
+    vengono toccati (né deduplicati né scartati), solo esclusi dal conteggio dell'hash.
+
+    Ritorna (articoli_deduplicati, contatori) con contatori =
+    {'saltati_fallback': articoli esclusi dall'hash perché non hanno full_text reale,
+     'scartati_duplicato_hash': articoli scartati perché hash identico a uno già visto}."""
+    seen_hashes = set()
+    kept = []
+    n_skipped_fallback = 0
+    n_dropped_hash = 0
+    for a in articles:
+        if a.get("text_source") != "full":
+            n_skipped_fallback += 1
+            kept.append(a)
+            continue
+        h = hashlib.sha256(normalize_text(f"{a['title']} {a['full_text']}").encode("utf-8")).hexdigest()
+        if h in seen_hashes:
+            n_dropped_hash += 1
+            continue
+        seen_hashes.add(h)
+        kept.append(a)
+    return kept, {"saltati_fallback": n_skipped_fallback, "scartati_duplicato_hash": n_dropped_hash}
 
 
 def fetch_fulltext(url: str, fallback: str = "") -> tuple[str, str]:

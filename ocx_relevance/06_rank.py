@@ -31,7 +31,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.path.insert(0, str(HERE))
 from common import (log, embed_texts, fetch_fulltext, MODELS, DATA, LLM_MODEL, format_date, detect_lang,
-                    canonicalize_url, load_tracking_params)
+                    canonicalize_url, load_tracking_params, dedup_by_content_hash)
 from ranker import build_lang_pools, score_similarity_multilang, find_similar_clusters, CLUSTER_SIM_THRESHOLD
 import importlib
 gate = importlib.import_module("05_llm_gate")
@@ -92,6 +92,19 @@ def main():
     json.dump(cache, open(cache_path, "w", encoding="utf-8"), ensure_ascii=False)
     nfull = sum(1 for a in arts if a["text_source"] == "full")
     log(f"     testo intero: {nfull}/{len(arts)}  (cache: {cache_path.name})")
+
+    # 1b) dedup ESATTA per hash del contenuto normalizzato, prima dell'embedding — solo
+    # sugli articoli con testo intero reale (vedi dedup_by_content_hash: gli articoli in
+    # fallback sul summary non vengono toccati, per non fondere rubriche ricorrenti con
+    # summary templato ma contenuto diverso).
+    before_hash = len(arts)
+    arts, hash_stats = dedup_by_content_hash(arts)
+    log(f"     dedup per hash contenuto: scartati {hash_stats['scartati_duplicato_hash']} duplicati esatti "
+        f"su {before_hash} (saltati dall'hash {hash_stats['saltati_fallback']} in fallback summary, non toccati)")
+    stats_path = DATA / "dedup_stats.json"
+    stats = json.load(open(stats_path, encoding="utf-8")) if stats_path.exists() else {}
+    stats.update(hash_stats)
+    json.dump(stats, open(stats_path, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
 
     # 2) embedding
     log("  2) embedding...")
