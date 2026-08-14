@@ -1,0 +1,21 @@
+# Parametri di query da rimuovere in fase di canonicalizzazione URL (dedup per link,
+# vedi common.canonicalize_url). Elenco esplicito di chiavi note, non un pattern regex:
+# se un feed nuovo porta un parametro di tracking non ancora qui, aggiungilo a mano.
+#
+# I primi 7 sono stati osservati davvero nel corpus durante l'audit del 13/08
+# (utm_* e traffic_source diffusi, at_medium/at_campaign specifici di BBC News).
+# Gli ultimi 4 non sono stati osservati nei dati ma sono tracking parameter standard
+# di settore (Facebook, Google Ads, Mailchimp) — aggiunti per prevenzione.
+tracking_params:
+  - utm_source
+  - utm_medium
+  - utm_campaign
+  - utm_content
+  - utm_term
+  - traffic_source
+  - at_medium
+  - at_campaign
+  - fbclid
+  - gclid
+  - mc_cid
+  - mc_eid

@@ -9,10 +9,12 @@ import time
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 
 import numpy as np
 import requests
 import trafilatura
+import yaml
 from dotenv import load_dotenv
 from openai import OpenAI, AzureOpenAI
 
@@ -32,6 +34,7 @@ MODELS = HERE / "models"; MODELS.mkdir(exist_ok=True)
 XLSX_LABEL = ROOT / "LABEL-Newsletter.xlsx"          # foglio Dati (corpus) + Ranking (50 etichettati)
 XLSX_EDITORIAL = ROOT / "OCX26_Newsletter.xlsx"      # articoli scelti per le newsletter
 OSSERVATORI = ROOT / "config" / "osservatori.json"
+TRACKING_PARAMS_PATH = ROOT / "corpus" / "tracking_params.yaml"  # config dedup URL, vedi canonicalize_url
 
 UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
                     "(KHTML, like Gecko) Chrome/120 Safari/537.36"}
@@ -41,6 +44,56 @@ def log(msg):
     print(msg, flush=True)
 
 
+def detect_lang(text: str) -> str:
+    """Lingua dominante del testo ('it', 'en', ...). 'it' se il testo è vuoto/troppo corto
+    per essere rilevato (langdetect alza LangDetectException) — 'it' perché è la lingua
+    maggioritaria negli esempi di riferimento, quindi il fallback più sicuro."""
+    from langdetect import detect, DetectorFactory, LangDetectException
+    DetectorFactory.seed = 0  # langdetect non è deterministico senza un seed fisso
+    text = (text or "").strip()
+    if not text:
+        return "it"
+    try:
+        return detect(text[:2000])
+    except LangDetectException:
+        return "it"
+
+
+def format_date(raw: str) -> str:
+    """Da data RFC822 di un feed (es. 'Tue, 21 Jul 2026 08:47:09 +0000') a gg/mm/aaaa.
+    Stringa vuota se non interpretabile."""
+    from email.utils import parsedate_to_datetime
+    if not raw:
+        return ""
+    try:
+        return parsedate_to_datetime(raw).strftime("%d/%m/%Y")
+    except (TypeError, ValueError):
+        return ""
+
+
+def group_by_cluster(rows):
+    """Riordina una lista di righe (dict con chiave 'cluster_id', es. da ranking.csv):
+    i membri di uno stesso cluster (sospetto duplicato) vengono accostati subito dopo
+    la prima occorrenza — che, siccome `rows` arriva già ordinata per punteggio, è
+    sempre il membro più in alto in classifica. Gli articoli senza cluster (o i cluster
+    già emessi) mantengono l'ordine originale. Usata per i fogli di revisione, dove
+    vedere le fonti duplicate una accanto all'altra aiuta a scegliere quale tenere."""
+    by_cluster = {}
+    for r in rows:
+        cid = r.get("cluster_id")
+        if cid:
+            by_cluster.setdefault(cid, []).append(r)
+    seen, ordered = set(), []
+    for r in rows:
+        cid = r.get("cluster_id")
+        if not cid:
+            ordered.append(r)
+        elif cid not in seen:
+            seen.add(cid)
+            ordered.extend(by_cluster[cid])
+    return ordered
+
+
 def normalize_text(t: str) -> str:
     """Preprocessing unico: unescape HTML, togli tag, minuscolo, collassa spazi."""
     t = html.unescape(t or "")
@@ -48,6 +101,27 @@ def normalize_text(t: str) -> str:
     t = t.lower()
     t = re.sub(r"\s+", " ", t)
     return t.strip()
+
+
+def load_tracking_params() -> set[str]:
+    """Parametri di query da rimuovere in fase di canonicalizzazione URL (dedup) — lista in
+    config (corpus/tracking_params.yaml), non hardcoded: se un feed nuovo porta un
+    parametro di tracking non ancora noto, si aggiunge lì, non nel codice."""
+    return set(yaml.safe_load(open(TRACKING_PARAMS_PATH, encoding="utf-8"))["tracking_params"])
+
+
+def canonicalize_url(url: str, tracking_params: set[str]) -> str:
+    """URL canonico per il dedup per link: host in minuscolo, senza i parametri di query in
+    `tracking_params` (config), senza fragment, senza slash finale sul path. Stringa vuota
+    invariata. NON risolve redirect (nessuna richiesta di rete): un dominio-ponte
+    (news.google.com, bit.ly...) resta canonicalizzato ma non risolto — non osservato nei
+    feed attuali (audit 13/08), ma è un limite dichiarato, non un caso silenzioso."""
+    if not url:
+        return url
+    parts = urlsplit(url)
+    query = [(k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True) if k not in tracking_params]
+    path = parts.path.rstrip("/") or "/"
+    return urlunsplit((parts.scheme, parts.netloc.lower(), path, urlencode(query), ""))
 
 
 def fetch_fulltext(url: str, fallback: str = "") -> tuple[str, str]:
@@ -60,6 +134,13 @@ def fetch_fulltext(url: str, fallback: str = "") -> tuple[str, str]:
                                    favor_precision=True) if r.ok else None
     except Exception:
         body = None
+    # Margine EURISTICO, non calibrato su dati (a differenza di MIN_PER_CLASS/
+    # CLUSTER_SIM_THRESHOLD in ranker.py): non basta che il testo scrapato sia più lungo
+    # del fallback (il summary RSS) di un solo carattere — serve un margine minimo perché
+    # un estratto di poco più lungo del summary è spesso il segno di uno scraping fallito
+    # a metà (es. un frammento di paywall o cookie banner), non un vero guadagno di
+    # informazione. 50 è un valore prudenziale, non testato sistematicamente: va
+    # aggiustato se si osservano scelte sbagliate tra full/fallback.
     if body and len(body) > len(fallback) + 50:
         return body[:8000], "full"
     return fallback, "fallback"
