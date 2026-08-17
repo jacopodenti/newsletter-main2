@@ -374,8 +374,17 @@ def embed_texts_cached(articles: list[dict], tracking_params: set[str], workers:
         X_out[i] = X[pos]
         last_seen[pos] = today  # riusato adesso: non scade finché continua a comparire nei fetch
 
+    # Esenzione dalla potatura per età: un articolo selected_for_newsletter (in ALMENO
+    # un osservatorio — la cache embedding è condivisa, non ha una dimensione per
+    # osservatorio) serve a tempo indeterminato per confrontare articoli nuovi contro
+    # quelli già usciti — stessa regola già applicata ai metadati in
+    # upsert_articles_store, allineata qui per non avere due finestre di retention
+    # scollegate (365gg metadati vs 60gg embedding: senza questa esenzione, dopo 2 mesi
+    # l'embedding di un articolo già in newsletter sparirebbe mentre il suo metadato
+    # resterebbe, rendendo il confronto impossibile proprio per i casi che contano di più).
+    selected_urls = {url for (url, _obs), r in load_articles_store().items() if r.get("selected_for_newsletter")}
     cutoff = (datetime.now(timezone.utc) - timedelta(days=EMBEDDINGS_RETENTION_DAYS)).strftime("%Y-%m-%d")
-    keep_idx = [i for i, d in enumerate(last_seen) if d >= cutoff]
+    keep_idx = [i for i, (u, d) in enumerate(zip(urls, last_seen)) if d >= cutoff or u in selected_urls]
     n_pruned = len(urls) - len(keep_idx)
     urls_kept = [urls[i] for i in keep_idx]
     X_kept = X[keep_idx] if keep_idx else np.zeros((0, EMBED_DIM), dtype=np.float32)
