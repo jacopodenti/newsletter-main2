@@ -26,7 +26,8 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.path.insert(0, str(ROOT / "ocx_relevance"))
 from common import (log, embed_texts, fetch_fulltext, format_date, detect_lang,
-                    canonicalize_url, load_tracking_params, dedup_by_content_hash)
+                    canonicalize_url, load_tracking_params, dedup_by_content_hash, content_hash,
+                    upsert_articles_store)
 from ranker import build_lang_pools, score_similarity_multilang, find_similar_clusters, CLUSTER_SIM_THRESHOLD
 import importlib
 sys.path.insert(0, str(HERE))
@@ -185,6 +186,26 @@ def main():
                         a["title"], a["fonte"], format_date(a.get("published_date", "")), a["link"],
                         cid if cid is not None else ""])
     log(f"\n  salvato: {out_path}")
+
+    # 7) store persistente — SOLO scrittura additiva a valle di ranking.csv (già salvato
+    # sopra, con gli stessi identici arts/order/scores): non altera in nessun modo il
+    # ranking prodotto, registra solo cosa è stato visto per i run futuri (riuso embedding,
+    # "non riproporre", sviluppi successivi di una storia — vedi common.upsert_articles_store).
+    records = []
+    for rank, i in enumerate(order, 1):
+        a = arts[i]
+        records.append({
+            "url_canonico": canonicalize_url(a["link"], tracking_params),
+            "osservatorio": "ai",
+            "content_hash": content_hash(a),
+            "published_date": a.get("published_date", ""),
+            "text_source": a.get("text_source"),
+            "last_rank": rank,
+        })
+    store_stats = upsert_articles_store(records)
+    log(f"  store articoli: {store_stats['nuove']} nuove, {store_stats['aggiornate']} aggiornate, "
+        f"{store_stats['potate']} potate per età, {store_stats['totale_dopo']} totali in store/articles.jsonl")
+
     log(f"\n  ROSA FINALE (ranker top-{args.topn} confermati dall'LLM): {si} articoli")
     log("\nFATTO.")
 

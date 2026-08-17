@@ -6,9 +6,11 @@ import os
 import re
 import html
 import time
+import json
 import hashlib
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 
@@ -36,6 +38,15 @@ XLSX_LABEL = ROOT / "LABEL-Newsletter.xlsx"          # foglio Dati (corpus) + Ra
 XLSX_EDITORIAL = ROOT / "OCX26_Newsletter.xlsx"      # articoli scelti per le newsletter
 OSSERVATORI = ROOT / "config" / "osservatori.json"
 TRACKING_PARAMS_PATH = ROOT / "corpus" / "tracking_params.yaml"  # config dedup URL, vedi canonicalize_url
+
+STORE_DIR = ROOT / "store"; STORE_DIR.mkdir(exist_ok=True)
+ARTICLES_STORE_PATH = STORE_DIR / "articles.jsonl"
+# Righe MAI selezionate per una newsletter vengono potate dallo store oltre questa età
+# (da first_seen): non possono più ricomparire in un fetch futuro (finestra di 30gg in
+# fetch_corpus.py) e a quella distanza il valore per "riconosci uno sviluppo successivo"
+# è basso. Le righe con selected_for_newsletter=True NON vengono mai potate per età
+# (vedi upsert_articles_store) — servono a tempo indeterminato per "non riproporre".
+ARTICLES_RETENTION_DAYS = 365
 
 UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
                     "(KHTML, like Gecko) Chrome/120 Safari/537.36"}
@@ -125,6 +136,18 @@ def canonicalize_url(url: str, tracking_params: set[str]) -> str:
     return urlunsplit((parts.scheme, parts.netloc.lower(), path, urlencode(query), ""))
 
 
+def content_hash(article: dict) -> str | None:
+    """Hash sha256 del contenuto normalizzato (titolo + full_text) — SOLO se
+    text_source == 'full' (stesso limite di dedup_by_content_hash: l'hash del solo
+    summary rischia falsi positivi tra articoli diversi con summary templato). None
+    altrimenti. Estratta a parte così dedup_by_content_hash e lo store persistente
+    (upsert_articles_store) usano esattamente la stessa formula, non due copie che
+    possono disallinearsi."""
+    if article.get("text_source") != "full":
+        return None
+    return hashlib.sha256(normalize_text(f"{article['title']} {article['full_text']}").encode("utf-8")).hexdigest()
+
+
 def dedup_by_content_hash(articles: list[dict]) -> tuple[list[dict], dict]:
     """Deduplicazione ESATTA per contenuto: hash sha256 del testo normalizzato
     (titolo + full_text), calcolato SOLO per gli articoli con text_source == 'full'. Se il
@@ -143,17 +166,93 @@ def dedup_by_content_hash(articles: list[dict]) -> tuple[list[dict], dict]:
     n_skipped_fallback = 0
     n_dropped_hash = 0
     for a in articles:
-        if a.get("text_source") != "full":
+        h = content_hash(a)
+        if h is None:
             n_skipped_fallback += 1
             kept.append(a)
             continue
-        h = hashlib.sha256(normalize_text(f"{a['title']} {a['full_text']}").encode("utf-8")).hexdigest()
         if h in seen_hashes:
             n_dropped_hash += 1
             continue
         seen_hashes.add(h)
         kept.append(a)
     return kept, {"saltati_fallback": n_skipped_fallback, "scartati_duplicato_hash": n_dropped_hash}
+
+
+def load_articles_store() -> dict:
+    """{(url_canonico, osservatorio): record} da store/articles.jsonl. Dict vuoto se lo
+    store non esiste ancora (primo run)."""
+    if not ARTICLES_STORE_PATH.exists():
+        return {}
+    store = {}
+    for line in open(ARTICLES_STORE_PATH, encoding="utf-8"):
+        line = line.strip()
+        if not line:
+            continue
+        r = json.loads(line)
+        store[(r["url_canonico"], r["osservatorio"])] = r
+    return store
+
+
+# Campi che un upsert può aggiornare (oltre a first_seen/selected_for_newsletter, gestiti
+# a parte con regole diverse). Un valore None in input NON sovrascrive un valore già
+# presente nello store (serve al backfill del commit 3, che non conosce content_hash/
+# text_source/last_rank per le righe storiche e non deve cancellarli se già noti da un
+# run reale).
+_ARTICLE_FIELDS = ("url_canonico", "osservatorio", "content_hash", "published_date", "text_source", "last_rank")
+
+
+def upsert_articles_store(records: list[dict]) -> dict:
+    """Read-merge-write su store/articles.jsonl (stesso pattern di dedup_stats.json).
+
+    Ogni record in input: dict con le chiavi in _ARTICLE_FIELDS, più opzionalmente
+    'first_seen' (solo per un inserimento nuovo con una data storica nota, es. il
+    backfill del commit 3 — se assente su una riga nuova si usa la data di oggi) e
+    'selected_for_newsletter' (bool, OR sticky: una volta True resta True, non si
+    "de-seleziona" mai un articolo).
+
+    RETENTION: dopo il merge, le righe con selected_for_newsletter falso e first_seen
+    più vecchio di ARTICLES_RETENTION_DAYS vengono rimosse dallo store (non possono più
+    ricomparire in un fetch futuro, vedi costante). Le righe selezionate non si potano mai.
+
+    Ritorna {nuove, aggiornate, potate, totale_dopo}."""
+    store = load_articles_store()
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    n_new, n_updated = 0, 0
+
+    for rec in records:
+        key = (rec["url_canonico"], rec["osservatorio"])
+        old = store.get(key)
+        merged = dict(old) if old else {}
+        for field in _ARTICLE_FIELDS:
+            val = rec.get(field)
+            if val is not None:
+                merged[field] = val
+            else:
+                merged.setdefault(field, None)
+        was_selected = bool(old.get("selected_for_newsletter")) if old else False
+        merged["selected_for_newsletter"] = bool(rec.get("selected_for_newsletter")) or was_selected
+        if old:
+            merged["first_seen"] = old["first_seen"]
+            n_updated += 1
+        else:
+            merged["first_seen"] = rec.get("first_seen") or today
+            n_new += 1
+        store[key] = merged
+
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=ARTICLES_RETENTION_DAYS)).strftime("%Y-%m-%d")
+    kept, n_pruned = {}, 0
+    for key, r in store.items():
+        if not r.get("selected_for_newsletter") and r.get("first_seen", today) < cutoff:
+            n_pruned += 1
+            continue
+        kept[key] = r
+
+    with open(ARTICLES_STORE_PATH, "w", encoding="utf-8") as f:
+        for r in kept.values():
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+
+    return {"nuove": n_new, "aggiornate": n_updated, "potate": n_pruned, "totale_dopo": len(kept)}
 
 
 def fetch_fulltext(url: str, fallback: str = "") -> tuple[str, str]:
