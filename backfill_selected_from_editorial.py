@@ -16,7 +16,7 @@ Uso: python backfill_selected_from_editorial.py
 """
 import sys
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
 import openpyxl
 
@@ -27,12 +27,22 @@ from common import log, canonicalize_url, load_tracking_params, upsert_articles_
 REJECT_WORDS = ["non va", "fuori scope", "non bene", "scartato"]
 
 
-def to_iso(value) -> str | None:
+def to_iso(value, today: str) -> str | None:
+    """Normalizza una cella Data a 'YYYY-MM-DD'. Scarta (ritorna None) qualunque data
+    FUTURA rispetto a oggi — un articolo non può essere stato selezionato per una
+    newsletter prima di esistere il file che lo elenca. Guard generico, non un fix
+    per un caso specifico: trovato 1 caso reale nell'audit del 17/08 (foglio OCX
+    "26.1", tutte le altre righe del foglio sono 18-26/01/2026, questa aveva
+    2026-12-26 — verosimile inversione mese/giorno in fase di inserimento, ma non
+    corretta a un valore indovinato: si scarta piuttosto che inventare una data)."""
+    iso = None
     if isinstance(value, datetime):
-        return value.strftime("%Y-%m-%d")
-    if isinstance(value, str) and value.strip():
-        return value.strip()[:10]
-    return None
+        iso = value.strftime("%Y-%m-%d")
+    elif isinstance(value, str) and value.strip():
+        iso = value.strip()[:10]
+    if iso and iso > today:
+        return None
+    return iso
 
 
 def read_ocx():
@@ -92,17 +102,21 @@ def read_startup():
 
 def main():
     tp = load_tracking_params()
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     sources = {"ocx": read_ocx(), "ai": read_ai(), "startup": read_startup()}
 
     all_dates = []
+    discarded_future = []  # (osservatorio, link, valore grezzo scartato) — per audit
     total = 0
-    log("Backfill selected_for_newsletter dalle fonti editoriali (zero chiamate API)")
+    log(f"Backfill selected_for_newsletter dalle fonti editoriali (zero chiamate API) — oggi={today}")
     for osservatorio, rows in sources.items():
         records = []
         for link, raw_date in rows:
-            iso = to_iso(raw_date)
+            iso = to_iso(raw_date, today)
             if iso:
                 all_dates.append(iso)
+            elif raw_date is not None and str(raw_date).strip():
+                discarded_future.append((osservatorio, link, raw_date))
             records.append({
                 "url_canonico": canonicalize_url(link, tp),
                 "osservatorio": osservatorio,
@@ -117,6 +131,12 @@ def main():
         log(f"  {osservatorio:8s}: {len(records):>4d} righe editoriali -> "
             f"{stats['nuove']} nuove, {stats['aggiornate']} già in store, totale store ora {stats['totale_dopo']}")
         total += len(records)
+
+    if discarded_future:
+        log(f"\n  ATTENZIONE — {len(discarded_future)} data(e) futura(e) scartata(e) "
+            f"(vedi to_iso: probabile errore nel foglio sorgente, non corretta a un valore indovinato):")
+        for osservatorio, link, raw in discarded_future:
+            log(f"    [{osservatorio}] {raw!r}  {link[:80]}")
 
     log(f"\nTOTALE articoli importati (letti dalle fonti, prima di dedup su ripetizioni): {total}")
     if all_dates:
