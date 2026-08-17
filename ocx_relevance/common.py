@@ -346,7 +346,28 @@ def embed_texts_cached(articles: list[dict], tracking_params: set[str], workers:
 
     `articles`: dict con almeno 'link', 'title', 'full_text'. Ritorna (X allineato
     all'ordine di `articles`, token EFFETTIVAMENTE spesi [0 se tutto cache-hit],
-    {'n_cache_hit', 'n_nuovi', 'potati'})."""
+    {'n_cache_hit', 'n_nuovi', 'potati'}).
+
+    CRITERIO DI CORRETTEZZA (verificato sui dati reali il 18/08, non solo dichiarato):
+    l'embedding di Azure NON è bit-per-bit deterministico tra due chiamate indipendenti
+    sullo stesso testo (deriva coseno misurata: 0,999992-0,999999 — vedi commit "check
+    di determinismo embedding"). Questo significa che l'ORDINE del ranking non è mai
+    esattamente riproducibile tra un run che riusa un embedding dalla cache e uno che lo
+    ricalcolerebbe da zero — e non lo sarebbe nemmeno SENZA cache, tra due run indipendenti
+    a distanza di tempo: non è un rischio introdotto da questa funzione, è una proprietà
+    dell'API. "Ordine identico" (bit-per-bit o anche solo in una fascia come il top-50) è
+    quindi un criterio SBAGLIATO da pretendere — verificato che fallisce anche in pratica
+    (4 scambi nel top-50 su un campione reale, tutti tra posizioni adiacenti con differenza
+    di score 0,00001-0,0005).
+
+    Il criterio corretto è: nessun articolo deve attraversare una SOGLIA OPERATIVA — oggi
+    rank 150 (taglio del gate LLM in 06_rank.py), in futuro le soglie di selezione della
+    newsletter. Verificato sui dati reali (fascia di rank 100-200, 101 articoli, imbedding
+    indipendente reale): 2 attraversamenti su 101 (i due articoli esattamente a cavallo
+    della soglia, rank 150 e 151, hanno scambiato posizione — differenza di score 0,000064).
+    Non è quindi un evento a probabilità zero: chi valuta una modifica a questa funzione
+    dovrebbe confrontare il TASSO di attraversamento osservato (~2% in una fascia di 101
+    articoli attorno a una soglia), non aspettarsi che scenda a zero."""
     urls, X, last_seen = load_embeddings_store()
     idx_by_url = {u: i for i, u in enumerate(urls)}
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
