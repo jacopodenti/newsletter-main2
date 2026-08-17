@@ -25,7 +25,7 @@ import numpy as np
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.path.insert(0, str(ROOT / "ocx_relevance"))
-from common import (log, embed_texts, fetch_fulltext, format_date, detect_lang,
+from common import (log, embed_texts_cached, fetch_fulltext, format_date, detect_lang,
                     canonicalize_url, load_tracking_params, dedup_by_content_hash, content_hash,
                     upsert_articles_store)
 from ranker import build_lang_pools, score_similarity_multilang, find_similar_clusters, CLUSTER_SIM_THRESHOLD
@@ -118,9 +118,10 @@ def main():
     json.dump(stats, open(stats_path, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
 
     # 2) embedding
-    log("  2) embedding...")
-    X, tok = embed_texts([f"{a['title']}. {a['full_text']}" for a in arts])
-    log(f"     vettori {X.shape}, token {tok}")
+    log("  2) embedding (cache condivisa store/embeddings.npz)...")
+    X, tok, embed_stats = embed_texts_cached(arts, tracking_params)
+    log(f"     vettori {X.shape}, token spesi {tok}  |  cache: {embed_stats['n_cache_hit']} hit, "
+        f"{embed_stats['n_nuovi']} nuovi, {embed_stats['potati']} potati per età")
 
     # 3) ranker — somiglianza agli esempi (NIENTE addestramento), per lingua
     log("  3) punteggio per somiglianza agli esempi (reference_set.npz)...")

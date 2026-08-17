@@ -320,6 +320,75 @@ def embed_texts(texts: list[str], batch: int = 8, max_chars: int = 6000, workers
     return np.array(out), state["tok"]
 
 
+EMBEDDINGS_STORE_PATH = STORE_DIR / "embeddings.npz"
+# Retention degli embedding: doppio margine rispetto alla finestra di fetch (30gg in
+# fetch_corpus.py) — un embedding più vecchio di così non può più essere riusato da
+# nessun run futuro (l'articolo non può ricomparire nel corpus), quindi è solo peso
+# morto nel file. Il "conto" è last_seen (ultima volta che è stato richiesto, hit o
+# miss), non first_seen: un embedding riusato di continuo non scade mai.
+EMBEDDINGS_RETENTION_DAYS = 60
+
+
+def load_embeddings_store() -> tuple[list[str], "np.ndarray", list[str]]:
+    """(urls, X, last_seen) da store/embeddings.npz. Liste/array vuoti se non esiste
+    ancora. X è float32, shape (n, EMBED_DIM)."""
+    if not EMBEDDINGS_STORE_PATH.exists():
+        return [], np.zeros((0, EMBED_DIM), dtype=np.float32), []
+    d = np.load(EMBEDDINGS_STORE_PATH, allow_pickle=False)
+    return list(d["urls"]), d["X"].astype(np.float32), list(d["last_seen"])
+
+
+def embed_texts_cached(articles: list[dict], tracking_params: set[str], workers: int = 4) -> tuple["np.ndarray", int, dict]:
+    """Come embed_texts, ma con cache PERSISTENTE CONDIVISA tra le 3 pipeline
+    (store/embeddings.npz, chiave = URL canonicalizzato — il testo di un articolo non
+    dipende da quale osservatorio lo sta valutando, quindi la cache si riusa tra
+    pipeline oltre che tra run). Manda all'API SOLO gli URL non ancora in cache.
+
+    `articles`: dict con almeno 'link', 'title', 'full_text'. Ritorna (X allineato
+    all'ordine di `articles`, token EFFETTIVAMENTE spesi [0 se tutto cache-hit],
+    {'n_cache_hit', 'n_nuovi', 'potati'})."""
+    urls, X, last_seen = load_embeddings_store()
+    idx_by_url = {u: i for i, u in enumerate(urls)}
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    canon = [canonicalize_url(a["link"], tracking_params) for a in articles]
+    missing_pos = [i for i, c in enumerate(canon) if c not in idx_by_url]
+
+    tok = 0
+    if missing_pos:
+        texts = [f"{articles[i]['title']}. {articles[i]['full_text']}" for i in missing_pos]
+        X_new, tok = embed_texts(texts, workers=workers)
+        X_new = X_new.astype(np.float32)
+        for j, i in enumerate(missing_pos):
+            c = canon[i]
+            if c in idx_by_url:
+                continue  # stesso URL ripetuto due volte in questo batch (non atteso, difesa)
+            idx_by_url[c] = len(urls)
+            urls.append(c)
+            last_seen.append(today)
+            X = np.vstack([X, X_new[j:j + 1]]) if X.shape[0] else X_new[j:j + 1].copy()
+
+    X_out = np.zeros((len(articles), EMBED_DIM), dtype=np.float32)
+    for i, c in enumerate(canon):
+        pos = idx_by_url[c]
+        X_out[i] = X[pos]
+        last_seen[pos] = today  # riusato adesso: non scade finché continua a comparire nei fetch
+
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=EMBEDDINGS_RETENTION_DAYS)).strftime("%Y-%m-%d")
+    keep_idx = [i for i, d in enumerate(last_seen) if d >= cutoff]
+    n_pruned = len(urls) - len(keep_idx)
+    urls_kept = [urls[i] for i in keep_idx]
+    X_kept = X[keep_idx] if keep_idx else np.zeros((0, EMBED_DIM), dtype=np.float32)
+    last_seen_kept = [last_seen[i] for i in keep_idx]
+
+    np.savez_compressed(EMBEDDINGS_STORE_PATH,
+                         urls=np.array(urls_kept),  # dtype stringa nativo (<U...), niente pickle
+                         X=X_kept.astype(np.float32),
+                         last_seen=np.array(last_seen_kept))
+
+    return X_out, tok, {"n_cache_hit": len(articles) - len(missing_pos), "n_nuovi": len(missing_pos), "potati": n_pruned}
+
+
 def llm_client() -> OpenAI:
     return OpenAI(api_key=os.environ["AZURE_OPENAI_API_KEY"],
                   base_url=os.environ["AZURE_OPENAI_ENDPOINT"])
