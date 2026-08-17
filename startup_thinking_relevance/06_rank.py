@@ -25,7 +25,7 @@ import numpy as np
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.path.insert(0, str(ROOT / "ocx_relevance"))
-from common import (log, embed_texts_cached, fetch_fulltext, format_date, detect_lang,
+from common import (log, embed_texts_cached, fetch_fulltext, format_date, parse_date, detect_lang,
                     canonicalize_url, load_tracking_params, dedup_by_content_hash, content_hash,
                     upsert_articles_store)
 from ranker import build_lang_pools, score_similarity_multilang, find_similar_clusters, CLUSTER_SIM_THRESHOLD
@@ -139,7 +139,7 @@ def main():
     # e così si vede anche se un candidato del gate ha altre fonti duplicate più giù in
     # classifica (mai gated per costo, ma comunque segnalate). Il gate LLM resta invece
     # limitato ai primi N (quello è il passo con un costo reale in token).
-    cluster_ids = find_similar_clusters(X)
+    cluster_ids, cluster_sim = find_similar_clusters(X, return_similarity=True)
     for a, cid in zip(arts, cluster_ids):
         a["cluster_id"] = cid
     EXCERPT_LEN = 240  # breve estratto per peer nel prompt del gate — non il cap di 6000
@@ -157,6 +157,37 @@ def main():
         ]
     n_clustered = sum(1 for a in arts if a["cluster_id"] is not None)
     log(f"     sospetti duplicati: {n_clustered}/{len(arts)} articoli in {len(by_cluster)} cluster (soglia coseno {CLUSTER_SIM_THRESHOLD})")
+
+    # 4b) metadati per cluster — SOLO calcolo e persistenza, NESSUN effetto sul ranking:
+    # legge cluster_ids/cluster_sim già calcolati sopra (riusa la stessa matrice di coseni
+    # di find_similar_clusters, non la ricalcola) e scrive su un file a sé, non tocca
+    # arts/order/scores/ranking.csv. Distingue, per ogni gruppo di sospetti duplicati, un
+    # lancio d'agenzia ripreso da tante testate (n_testate=1 o poche, sim altissima) da una
+    # copertura indipendente di più redazioni sullo stesso fatto (n_testate alto, spread
+    # temporale più ampio) — oggi indistinguibili guardando solo il cluster_id.
+    by_cluster_idx = {}
+    for i, a in enumerate(arts):
+        if a["cluster_id"] is not None:
+            by_cluster_idx.setdefault(a["cluster_id"], []).append(i)
+    cluster_meta = {}
+    for cid, idxs in by_cluster_idx.items():
+        pairs = [cluster_sim[i, j] for pi, i in enumerate(idxs) for pj, j in enumerate(idxs) if pi < pj]
+        members = [arts[i] for i in idxs]
+        feeds = sorted({m["fonte"] for m in members})
+        dates = [d for d in (parse_date(m.get("published_date", "")) for m in members) if d]
+        spread_ore = (max(dates) - min(dates)).total_seconds() / 3600 if len(dates) >= 2 else None
+        cluster_meta[str(cid)] = {
+            "n_articoli": len(idxs),
+            "n_testate": len(feeds),
+            "testate": feeds,
+            "sim_media": round(float(np.mean(pairs)), 4),
+            "sim_min": round(float(np.min(pairs)), 4),
+            "sim_max": round(float(np.max(pairs)), 4),
+            "spread_ore": round(spread_ore, 1) if spread_ore is not None else None,
+        }
+    cluster_meta_path = DATA / "cluster_metadata.json"
+    json.dump(cluster_meta, open(cluster_meta_path, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+    log(f"     metadati cluster salvati: {cluster_meta_path}  ({len(cluster_meta)} cluster)")
 
     # 5) gate LLM sui primi N
     log(f"  5) gate LLM sui primi {args.topn}...")

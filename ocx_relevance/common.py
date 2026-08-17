@@ -71,16 +71,24 @@ def detect_lang(text: str) -> str:
         return "it"
 
 
-def format_date(raw: str) -> str:
-    """Da data RFC822 di un feed (es. 'Tue, 21 Jul 2026 08:47:09 +0000') a gg/mm/aaaa.
-    Stringa vuota se non interpretabile."""
+def parse_date(raw: str):
+    """Da data RFC822 di un feed (es. 'Tue, 21 Jul 2026 08:47:09 +0000') a datetime
+    timezone-aware, o None se vuota/non interpretabile. Estratta a parte così
+    format_date e il calcolo dello spread temporale dei cluster (ranker/06_rank.py)
+    usano lo stesso parsing, non due copie che possono disallinearsi."""
     from email.utils import parsedate_to_datetime
     if not raw:
-        return ""
+        return None
     try:
-        return parsedate_to_datetime(raw).strftime("%d/%m/%Y")
+        return parsedate_to_datetime(raw)
     except (TypeError, ValueError):
-        return ""
+        return None
+
+
+def format_date(raw: str) -> str:
+    """Da data RFC822 di un feed a gg/mm/aaaa. Stringa vuota se non interpretabile."""
+    dt = parse_date(raw)
+    return dt.strftime("%d/%m/%Y") if dt else ""
 
 
 def group_by_cluster(rows):
