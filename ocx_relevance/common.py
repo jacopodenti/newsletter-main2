@@ -72,17 +72,30 @@ def detect_lang(text: str) -> str:
 
 
 def parse_date(raw: str):
-    """Da data RFC822 di un feed (es. 'Tue, 21 Jul 2026 08:47:09 +0000') a datetime
-    timezone-aware, o None se vuota/non interpretabile. Estratta a parte così
-    format_date e il calcolo dello spread temporale dei cluster (ranker/06_rank.py)
-    usano lo stesso parsing, non due copie che possono disallinearsi."""
+    """Da data di un feed RSS a datetime timezone-aware, o None se vuota/non interpretabile.
+    Estratta a parte così format_date, il calcolo dello spread temporale dei cluster
+    (ranker/06_rank.py) e il filtro di freschezza (corpus/fetch_corpus.py) usano lo stesso
+    parsing, non copie che possono disallinearsi.
+
+    Prova RFC822 (es. 'Tue, 21 Jul 2026 08:47:09 +0000', il formato più comune), poi ISO8601
+    (es. '2026-08-18T09:35:35-04:00', usato da The Verge/Business Insider/Fast Company —
+    verificato 18/08: senza questo fallback, quei 3 feed perdevano ogni run tutti gli
+    articoli come "data non interpretabile", indistinguibili da un feed davvero fermo).
+    Un datetime senza timezone (visto su Fast Company) viene normalizzato a UTC: un mix di
+    datetime aware e naive nello stesso confronto solleverebbe TypeError."""
     from email.utils import parsedate_to_datetime
     if not raw:
         return None
     try:
-        return parsedate_to_datetime(raw)
+        dt = parsedate_to_datetime(raw)
     except (TypeError, ValueError):
-        return None
+        try:
+            dt = datetime.fromisoformat(raw)
+        except (TypeError, ValueError):
+            return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
 
 
 def format_date(raw: str) -> str:

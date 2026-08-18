@@ -40,7 +40,6 @@ import re
 import sys
 from collections import Counter
 from datetime import datetime, timedelta, timezone
-from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -49,26 +48,13 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "ocx_relevance"))
 
 from fetch_feeds import fetch_all_with_diagnostics
-from common import canonicalize_url, load_tracking_params, fetch_fulltext
+from common import canonicalize_url, load_tracking_params, fetch_fulltext, parse_date
 
 DATA = HERE
 REFERENCE_OUT = DATA / "corpus_raw.jsonl"
 
 MAX_PER_FEED = 50
 MAX_AGE_DAYS = 30
-
-
-def parse_date(raw):
-    """Ritorna un datetime timezone-aware, o None se non interpretabile."""
-    if not raw:
-        return None
-    try:
-        dt = parsedate_to_datetime(raw)
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt
-    except (TypeError, ValueError):
-        return None
 
 
 def _causa_zero_entry(bozo_error):
