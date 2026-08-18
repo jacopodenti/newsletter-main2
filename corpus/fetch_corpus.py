@@ -18,10 +18,16 @@ coglierebbe. Parametri da rimuovere in corpus/tracking_params.yaml, non hardcode
 Riusa fetch_feeds.fetch_all() da ../src e canonicalize_url/load_tracking_params
 da ../ocx_relevance/common.py (unico punto condiviso con le 3 pipeline).
 
-Output: corpus_raw.jsonl (un articolo per riga: title, link, published_date, summary, feed_name)
-        fetch_stats.json (contatori dell'ultimo run — persistiti, non solo loggati)
-Uso:    python corpus/fetch_corpus.py
+Output (nome derivato da --out, default corpus_raw.jsonl — il corpus di RIFERIMENTO
+su cui è costruita la baseline, mai sovrascritto da un run di test):
+    <out>.jsonl        un articolo per riga: title, link, published_date, summary, feed_name
+    <out>_stats.json   contatori dell'ultimo run — persistiti, non solo loggati
+
+Uso:
+    python corpus/fetch_corpus.py                                       # aggiorna il riferimento
+    python corpus/fetch_corpus.py --out corpus/corpus_raw_test.jsonl     # run di test, isolato
 """
+import argparse
 import json
 import sys
 from collections import Counter
@@ -38,6 +44,7 @@ from fetch_feeds import fetch_all
 from common import canonicalize_url, load_tracking_params
 
 DATA = HERE
+REFERENCE_OUT = DATA / "corpus_raw.jsonl"
 
 MAX_PER_FEED = 50
 MAX_AGE_DAYS = 30
@@ -57,6 +64,19 @@ def parse_date(raw):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--out", default=None,
+                         help=f"Path di output per il corpus (default: {REFERENCE_OUT}, il corpus di RIFERIMENTO "
+                              "su cui è costruita la baseline). Usa un path diverso per i run di test, così non "
+                              "sovrascrivi mai il riferimento.")
+    args = parser.parse_args()
+
+    out_path = Path(args.out) if args.out else REFERENCE_OUT
+    stats_path = out_path.with_name(out_path.stem + "_stats.json")
+    if out_path == REFERENCE_OUT:
+        print(f"ATTENZIONE: nessun --out specificato, questo run sovrascriverà il corpus di RIFERIMENTO "
+              f"({out_path}). Per un run di test usa --out <path>.")
+
     feeds_path = HERE / "feeds.yaml"
     print(f"STEP 1 — scraping di tutti i feed in {feeds_path.name} (max {MAX_PER_FEED}/feed)")
 
@@ -126,7 +146,6 @@ def main():
         for name, n in dropped_by_feed.most_common(10):
             print(f"    {name:35s} {n}")
 
-    out_path = DATA / "corpus_raw.jsonl"
     with open(out_path, "w", encoding="utf-8") as f:
         for a in kept:
             f.write(json.dumps(a, ensure_ascii=False) + "\n")
@@ -146,7 +165,6 @@ def main():
         "scartati_data_troppo_vecchia": dropped_old,
         "rimasti": len(kept),
     }
-    stats_path = DATA / "fetch_stats.json"
     json.dump(stats, open(stats_path, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
 
     print(f"\n  salvato: {out_path}  ({len(kept)} articoli freschi)")
