@@ -21,7 +21,10 @@ da ../ocx_relevance/common.py (unico punto condiviso con le 3 pipeline).
 Output (nome derivato da --out, default corpus_raw.jsonl — il corpus di RIFERIMENTO):
     <out>.jsonl              un articolo per riga: title, link, published_date, summary, feed_name
     <out>_stats.json         contatori aggregati dell'ultimo run
-    <out>_feed_report.json   diagnostica per singolo feed (entry grezze, bozo, scarti, full-text)
+    <out>_feed_report.json   {"riepilogo": feed problematici raggruppati per causa (zero entry
+                              per errore HTTP, zero entry per XML non valido, feed sano ma
+                              contenuto oltre la finestra temporale, feed sano ma full-text
+                              sempre in fallback), "feeds": diagnostica per singolo feed}
 
 Uso:
     python corpus/fetch_corpus.py                                  # aggiorna il corpus di riferimento
@@ -33,6 +36,7 @@ Uso:
 """
 import argparse
 import json
+import re
 import sys
 from collections import Counter
 from datetime import datetime, timedelta, timezone
@@ -65,6 +69,46 @@ def parse_date(raw):
         return dt
     except (TypeError, ValueError):
         return None
+
+
+def _causa_zero_entry(bozo_error):
+    """Distingue la causa di un feed a zero entry dal messaggio d'errore. bozo da solo non
+    basta (vedi nota in fetch_feeds._parse_entries: bozo è un segnale, non un criterio di
+    scarto): un HTTPError di requests.raise_for_status ha un formato riconoscibile ("403
+    Client Error: ..."), un errore di parsing XML di feedparser (SAXParseException) inizia
+    sempre con "<unknown>:"."""
+    if not bozo_error:
+        return "zero_entry_senza_errore"
+    if bozo_error.startswith("<unknown>:"):
+        return "zero_entry_xml_non_valido"
+    if re.match(r"^\d{3} (Client|Server) Error", bozo_error):
+        return "zero_entry_errore_http"
+    return "zero_entry_altro_errore_rete"
+
+
+def build_riepilogo(report, diagnose_fulltext):
+    """Raggruppa i feed problematici per causa, così ad ogni run si vede subito cosa è
+    cambiato senza scorrere tutte le voci del report. Le chiavi sono sempre presenti anche
+    a lista vuota, per distinguere "controllato, nessun caso" da "categoria non applicabile"."""
+    riepilogo = {
+        "zero_entry_errore_http": [],
+        "zero_entry_xml_non_valido": [],
+        "zero_entry_altro_errore_rete": [],
+        "zero_entry_senza_errore": [],
+        "sano_ma_oltre_finestra_temporale": [],
+        "sano_ma_fulltext_sempre_fallback": [],
+    }
+    for name, r in report.items():
+        if r["n_entries_raw"] == 0:
+            riepilogo[_causa_zero_entry(r["bozo_error"])].append(name)
+            continue
+        if r["n_link_titolo_validi"] > 0 and r["n_rimasti"] == 0 and r["n_scartati_data"] > 0:
+            riepilogo["sano_ma_oltre_finestra_temporale"].append(name)
+        if diagnose_fulltext and r["n_rimasti"] > 0 and r["n_full_text"] == 0:
+            riepilogo["sano_ma_fulltext_sempre_fallback"].append(name)
+    if not diagnose_fulltext:
+        riepilogo["sano_ma_fulltext_sempre_fallback"] = "non testato in questo run (usa --diagnose-fulltext)"
+    return riepilogo
 
 
 def main():
@@ -217,12 +261,21 @@ def main():
         "scartati_data_troppo_vecchia": dropped_old,
         "rimasti": len(kept),
     }
+    for r in report.values():
+        r["n_rimasti"] = r["n_link_titolo_validi"] - r["n_scartati_duplicato_url"] - r["n_scartati_data"]
+
+    riepilogo = build_riepilogo(report, args.diagnose_fulltext)
     json.dump(stats, open(stats_path, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
-    json.dump(report, open(report_path, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+    json.dump({"riepilogo": riepilogo, "feeds": report}, open(report_path, "w", encoding="utf-8"),
+               ensure_ascii=False, indent=2)
 
     n_zero = sum(1 for r in report.values() if r["n_entries_raw"] == 0)
     n_bozo = sum(1 for r in report.values() if r["bozo"])
     print(f"\n  [REPORT PER-FEED] {len(report)} feed configurati — {n_zero} a zero entry, {n_bozo} con bozo=True")
+    print(f"  [RIEPILOGO] per causa (vedi {report_path.name} per l'elenco completo):")
+    for causa, feed_list in riepilogo.items():
+        n = len(feed_list) if isinstance(feed_list, list) else feed_list
+        print(f"    {causa:38s} {n}")
 
     print(f"\n  salvato: {out_path}  ({len(kept)} articoli freschi)")
     print(f"  salvato: {stats_path}")

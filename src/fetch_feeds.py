@@ -45,6 +45,11 @@ def _parse_entries(parsed, name: str, max_per_feed: int):
     diag = {
         "feed_name": name,
         "n_entries_raw": len(parsed.entries),
+        # bozo è un SEGNALE, non un criterio di scarto: feedparser lo alza anche per XML
+        # tecnicamente non ben formato ma comunque interpretabile (es. "Industria Italiana",
+        # verificato il 18/08 — bozo=True per "junk after document element", eppure 10/10
+        # entry valide e 10/10 con full-text riuscito). Va letto insieme a n_entries_raw e
+        # n_link_titolo_validi, non usato da solo per decidere se un feed funziona.
         "bozo": bool(getattr(parsed, "bozo", 0)),
         "bozo_error": str(parsed.get("bozo_exception", "")) if getattr(parsed, "bozo", 0) else None,
         "n_link_titolo_validi": 0,
