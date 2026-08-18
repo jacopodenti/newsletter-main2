@@ -38,8 +38,9 @@ import importlib
 gate = importlib.import_module("05_llm_gate")
 
 
-def load_corpus():
-    rows = [json.loads(l) for l in open(ROOT / "corpus" / "corpus_raw.jsonl", encoding="utf-8")]
+def load_corpus(corpus_path=None):
+    corpus_path = Path(corpus_path) if corpus_path else ROOT / "corpus" / "corpus_raw.jsonl"
+    rows = [json.loads(l) for l in open(corpus_path, encoding="utf-8")]
     for r in rows:
         r["fonte"] = r.get("feed_name", "")
 
@@ -68,10 +69,12 @@ def load_corpus():
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--topn", type=int, default=150, help="quanti candidati passare all'LLM")
+    ap.add_argument("--corpus", default=None,
+                     help="path del corpus (default: ../corpus/corpus_raw.jsonl, il riferimento)")
     args = ap.parse_args()
 
     log("STEP 6 — pipeline completa")
-    arts = load_corpus()
+    arts = load_corpus(args.corpus)
     log(f"  articoli in ingresso: {len(arts)}")
 
     # 1) testo intero — con CACHE su disco (non ri-scarica gli articoli già presi)
