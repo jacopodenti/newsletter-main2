@@ -15,17 +15,21 @@ alcuni feed ripubblicano lo stesso articolo con parametri di tracking diversi
 (utm_*, at_medium/at_campaign — vedi audit del 13/08) che una stringa esatta non
 coglierebbe. Parametri da rimuovere in corpus/tracking_params.yaml, non hardcoded.
 
-Riusa fetch_feeds.fetch_all() da ../src e canonicalize_url/load_tracking_params
+Riusa fetch_feeds.fetch_all_with_diagnostics() da ../src e canonicalize_url/load_tracking_params
 da ../ocx_relevance/common.py (unico punto condiviso con le 3 pipeline).
 
-Output (nome derivato da --out, default corpus_raw.jsonl — il corpus di RIFERIMENTO
-su cui è costruita la baseline, mai sovrascritto da un run di test):
-    <out>.jsonl        un articolo per riga: title, link, published_date, summary, feed_name
-    <out>_stats.json   contatori dell'ultimo run — persistiti, non solo loggati
+Output (nome derivato da --out, default corpus_raw.jsonl — il corpus di RIFERIMENTO):
+    <out>.jsonl              un articolo per riga: title, link, published_date, summary, feed_name
+    <out>_stats.json         contatori aggregati dell'ultimo run
+    <out>_feed_report.json   diagnostica per singolo feed (entry grezze, bozo, scarti, full-text)
 
 Uso:
-    python corpus/fetch_corpus.py                                       # aggiorna il riferimento
-    python corpus/fetch_corpus.py --out corpus/corpus_raw_test.jsonl     # run di test, isolato
+    python corpus/fetch_corpus.py                                  # aggiorna il corpus di riferimento
+    python corpus/fetch_corpus.py --out corpus/corpus_raw_test.jsonl [--diagnose-fulltext]
+        # run di test (es. per verificare un feed appena aggiunto): NON tocca il riferimento.
+        # --diagnose-fulltext prova anche lo scraping del testo intero per ogni articolo
+        # (una richiesta HTTP per articolo: più lento, ma serve a distinguere un feed rotto
+        # da uno scraping del testo che va in fallback).
 """
 import argparse
 import json
@@ -40,8 +44,8 @@ ROOT = HERE.parent
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "ocx_relevance"))
 
-from fetch_feeds import fetch_all
-from common import canonicalize_url, load_tracking_params
+from fetch_feeds import fetch_all_with_diagnostics
+from common import canonicalize_url, load_tracking_params, fetch_fulltext
 
 DATA = HERE
 REFERENCE_OUT = DATA / "corpus_raw.jsonl"
@@ -69,10 +73,14 @@ def main():
                          help=f"Path di output per il corpus (default: {REFERENCE_OUT}, il corpus di RIFERIMENTO "
                               "su cui è costruita la baseline). Usa un path diverso per i run di test, così non "
                               "sovrascrivi mai il riferimento.")
+    parser.add_argument("--diagnose-fulltext", action="store_true",
+                         help="In più, prova lo scraping del testo intero per ogni articolo rimasto e conta "
+                              "full/fallback per feed (lento: una richiesta HTTP per articolo).")
     args = parser.parse_args()
 
     out_path = Path(args.out) if args.out else REFERENCE_OUT
     stats_path = out_path.with_name(out_path.stem + "_stats.json")
+    report_path = out_path.with_name(out_path.stem + "_feed_report.json")
     if out_path == REFERENCE_OUT:
         print(f"ATTENZIONE: nessun --out specificato, questo run sovrascriverà il corpus di RIFERIMENTO "
               f"({out_path}). Per un run di test usa --out <path>.")
@@ -80,7 +88,23 @@ def main():
     feeds_path = HERE / "feeds.yaml"
     print(f"STEP 1 — scraping di tutti i feed in {feeds_path.name} (max {MAX_PER_FEED}/feed)")
 
-    articles = fetch_all(str(feeds_path), max_per_feed=MAX_PER_FEED)
+    articles, feed_diagnostics = fetch_all_with_diagnostics(str(feeds_path), max_per_feed=MAX_PER_FEED)
+
+    # report per-feed: inizializzato da TUTTI i feed configurati (anche quelli a zero entry,
+    # che altrimenti sparirebbero dal conteggio invece di comparire esplicitamente come zero).
+    report = {}
+    for diag in feed_diagnostics:
+        report[diag["feed_name"]] = {
+            "n_entries_raw": diag["n_entries_raw"],
+            "bozo": diag["bozo"],
+            "bozo_error": diag["bozo_error"],
+            "n_link_titolo_validi": diag["n_link_titolo_validi"],
+            "n_link_vuoto": diag["n_link_vuoto"],
+            "n_scartati_duplicato_url": 0,
+            "n_scartati_data": 0,
+            "n_full_text": None,
+            "n_fallback": None,
+        }
 
     counts = Counter(a["feed_name"] for a in articles)
     n_feeds_total = len(counts)
@@ -97,6 +121,7 @@ def main():
         canon = canonicalize_url(a["link"], tracking_params)
         if canon and canon in seen:
             n_dropped_duplicate_url += 1
+            report[a["feed_name"]]["n_scartati_duplicato_url"] += 1
             continue
         seen.add(canon)
         deduped.append(a)
@@ -129,10 +154,12 @@ def main():
         if dt is None:
             dropped_unparseable += 1
             dropped_by_feed[a["feed_name"]] += 1
+            report[a["feed_name"]]["n_scartati_data"] += 1
             continue
         if dt < cutoff or dt.year != now.year:
             dropped_old += 1
             dropped_by_feed[a["feed_name"]] += 1
+            report[a["feed_name"]]["n_scartati_data"] += 1
             continue
         kept.append(a)
 
@@ -155,6 +182,31 @@ def main():
     for name, n in counts.most_common(15):
         print(f"    {name:35s} {n}")
 
+    # --- diagnostica full-text (opzionale: una richiesta HTTP per articolo, lento) ---
+    # Distingue un feed rotto (zero entry/bozo, già visibile sopra) da uno scraping del
+    # testo che va in fallback: il testo NON viene salvato in corpus_raw.jsonl (che resta
+    # title/link/published_date/summary/feed_name), serve solo a contare full vs fallback.
+    if args.diagnose_fulltext:
+        from concurrent.futures import ThreadPoolExecutor
+        print(f"\n  [DIAGNOSTICA FULL-TEXT] scraping di {len(kept)} articoli (16 worker)...")
+
+        def _check(a):
+            _, source = fetch_fulltext(a["link"], a["summary"])
+            return a["feed_name"], source
+        with ThreadPoolExecutor(max_workers=16) as ex:
+            for feed_name, source in ex.map(_check, kept):
+                if source == "full":
+                    report[feed_name]["n_full_text"] = (report[feed_name]["n_full_text"] or 0) + 1
+                else:
+                    report[feed_name]["n_fallback"] = (report[feed_name]["n_fallback"] or 0) + 1
+        # feed con almeno un articolo rimasto ma nessun "full": normalizza a 0, non a None,
+        # per distinguerlo da "non testato in questo run".
+        for feed_name, r in report.items():
+            if r["n_fallback"] is not None and r["n_full_text"] is None:
+                r["n_full_text"] = 0
+            elif r["n_full_text"] is not None and r["n_fallback"] is None:
+                r["n_fallback"] = 0
+
     # contatori persistiti (non solo loggati a runtime) — anche la data non interpretabile,
     # che finora si perdeva a fine run.
     stats = {
@@ -166,9 +218,15 @@ def main():
         "rimasti": len(kept),
     }
     json.dump(stats, open(stats_path, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+    json.dump(report, open(report_path, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+
+    n_zero = sum(1 for r in report.values() if r["n_entries_raw"] == 0)
+    n_bozo = sum(1 for r in report.values() if r["bozo"])
+    print(f"\n  [REPORT PER-FEED] {len(report)} feed configurati — {n_zero} a zero entry, {n_bozo} con bozo=True")
 
     print(f"\n  salvato: {out_path}  ({len(kept)} articoli freschi)")
     print(f"  salvato: {stats_path}")
+    print(f"  salvato: {report_path}")
     print("\nFATTO.")
 
 
