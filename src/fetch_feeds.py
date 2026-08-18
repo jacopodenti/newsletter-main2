@@ -1,12 +1,41 @@
 import feedparser
+import requests
 import yaml
 from pathlib import Path
 from datetime import datetime
+
+# Stesso User-Agent del fetch del testo intero (ocx_relevance/common.py:UA) — prima il feed
+# si presentava con lo user-agent di default di feedparser (identificabile come bot) mentre
+# il fetch del testo si presenta come Chrome: un'incoerenza che può causare blocchi lato server
+# su feed altrimenti raggiungibili.
+UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+                    "(KHTML, like Gecko) Chrome/120 Safari/537.36"}
+TIMEOUT_S = 15
+MAX_RETRIES = 1  # un solo retry sui fallimenti di rete, non parallelizzato (loop resta sequenziale)
 
 
 def load_feeds(config_path: str = "config/feeds.yaml") -> list[dict]:
     with open(config_path) as f:
         return yaml.safe_load(f)["feeds"]
+
+
+def _fetch_parsed(url: str):
+    """Scarica e parsa un feed con UA esplicito, timeout e un retry sui fallimenti di rete
+    (connessione, DNS, timeout, status HTTP di errore). Se anche il retry fallisce, ritorna
+    un feed vuoto con bozo=True e l'eccezione di rete come bozo_exception, così un fallimento
+    di rete è indistinguibile da un feed malformato solo nel messaggio, non nel flag."""
+    last_exc = None
+    for _ in range(MAX_RETRIES + 1):
+        try:
+            resp = requests.get(url, headers=UA, timeout=TIMEOUT_S)
+            resp.raise_for_status()
+            return feedparser.parse(resp.content)
+        except Exception as e:
+            last_exc = e
+    parsed = feedparser.parse(b"")
+    parsed["bozo"] = True
+    parsed["bozo_exception"] = last_exc
+    return parsed
 
 
 def _parse_entries(parsed, name: str, max_per_feed: int):
@@ -56,7 +85,7 @@ def fetch_all(config_path: str = "config/feeds.yaml", max_per_feed: int = 10) ->
     for feed_config in feeds:
         url = feed_config["url"]
         name = feed_config.get("name", url)
-        parsed = feedparser.parse(url)
+        parsed = _fetch_parsed(url)
         arts, _ = _parse_entries(parsed, name, max_per_feed)
         articles.extend(arts)
 
@@ -74,7 +103,7 @@ def fetch_all_with_diagnostics(config_path: str = "config/feeds.yaml", max_per_f
     for feed_config in feeds:
         url = feed_config["url"]
         name = feed_config.get("name", url)
-        parsed = feedparser.parse(url)
+        parsed = _fetch_parsed(url)
         arts, diag = _parse_entries(parsed, name, max_per_feed)
         articles.extend(arts)
         diagnostics.append(diag)
