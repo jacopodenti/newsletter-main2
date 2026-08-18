@@ -57,7 +57,8 @@ def _parse_entries(parsed, name: str, max_per_feed: int):
         title = entry.get("title", "")
         if not link:
             diag["n_link_vuoto"] += 1
-        elif title:
+            continue  # senza link non è deduplicabile né raggiungibile per il testo intero: scartata qui
+        if title:
             diag["n_link_titolo_validi"] += 1
 
         published = entry.get("published") or entry.get("updated") or ""
