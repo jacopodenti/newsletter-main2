@@ -2,6 +2,12 @@
 # Non tocca ../src né ../config/feeds.yaml (quello resta per la produzione).
 # Un solo corpus per tutti: aggiungere qui una testata la rende disponibile a ogni
 # osservatorio, senza bisogno di ri-scaricare per ciascuno.
+#
+# Un feed con il campo "disabilitato" è stato verificato irrecuperabile (RSS dismesso,
+# blocco WAF persistente, o ridondante con un altro feed già attivo) — non è dimenticato,
+# è già stato indagato: il valore riporta causa e data della verifica. fetch_feeds.load_feeds()
+# lo esclude prima di tentare il fetch, quindi non compare nel report diagnostico. Se un
+# editore riapre l'accesso, basta rimuovere il campo per riattivare la riga.
 
 feeds:
   # --- testate nuove/corrette per il test AI (verificate scaricandole davvero) ---
@@ -98,6 +104,7 @@ feeds:
 
   - url: https://panoramadellasanita.it/site/feed/
     name: PanoramaDellaSanità.it
+    disabilitato: "blocco WAF — l'URL risponde con una pagina di captcha (redirect a /.well-known/sgcaptcha/), non serve mai l'XML del feed (verificato 2026-08-18)"
 
   - url: https://www.dataversity.net/articles/feed/
     name: Dataversity
@@ -140,6 +147,7 @@ feeds:
 
   - url: https://www.healthcareitnews.com/home/feed
     name: Healthcare IT News
+    disabilitato: "blocco WAF — 403 su ogni pattern e query provata (verificato 2026-08-18)"
 
   - url: https://techcrunch.com/feed/
     name: TechCrunch
@@ -158,11 +166,11 @@ feeds:
 
   - url: https://www.bloomberg.com/feed/podcast/etf-report.xml
     name: Bloomberg
-    # nota: feed podcast, non news — tenuto per compatibilità con config/feeds.yaml, preferire "Bloomberg Technology" sopra
+    disabilitato: "ridondante — già coperto da \"Bloomberg Technology\" sopra (verificato 2026-08-18)"
 
   - url: https://www.reutersagency.com/feed/?best-topics=technology
     name: Reuters
-    # nota: URL sospetto (dominio agency, query param anomalo) — non ho trovato un'alternativa ufficiale verificata
+    disabilitato: "RSS pubblico dismesso, richiede autenticazione — 401/404/DNS su tutte le varianti provate (verificato 2026-08-18)"
 
   - url: https://www.cnbc.com/id/100003114/device/rss/rss.html
     name: CNBC
@@ -184,6 +192,7 @@ feeds:
 
   - url: https://www.digitalhealth.net/news/feed/
     name: Digital Health
+    disabilitato: "blocco WAF — 403 su ogni pattern provato (verificato 2026-08-18)"
 
   - url: https://www.healthcaredive.com/feeds/news/
     name: Healthcare Dive
@@ -229,6 +238,7 @@ feeds:
 
   - url: https://www.emarketer.com/rss
     name: eMarketer
+    disabilitato: "non espone più feed pubblici — nessun tag RSS in autodiscovery, tutti i pattern comuni 404 (verificato 2026-08-18)"
 
   - url: https://www.corriere.it/dynamic-feed/rss/section/Scienze.xml
     name: Corriere della Sera - Tecnologia

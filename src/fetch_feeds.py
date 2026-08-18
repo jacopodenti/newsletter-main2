@@ -15,8 +15,17 @@ MAX_RETRIES = 1  # un solo retry sui fallimenti di rete, non parallelizzato (loo
 
 
 def load_feeds(config_path: str = "config/feeds.yaml") -> list[dict]:
+    """Esclude i feed con il campo 'disabilitato' (verificati irrecuperabili — RSS dismesso,
+    blocco WAF persistente, o ridondanti — vedi la nota in testa a feeds.yaml): non vengono
+    nemmeno tentati, quindi non compaiono nel report diagnostico né rallentano il fetch con
+    un timeout/retry su un URL già noto come morto."""
     with open(config_path) as f:
-        return yaml.safe_load(f)["feeds"]
+        feeds = yaml.safe_load(f)["feeds"]
+    attivi = [f for f in feeds if not f.get("disabilitato")]
+    n_disabilitati = len(feeds) - len(attivi)
+    if n_disabilitati:
+        print(f"  {n_disabilitati} feed disabilitati saltati (campo 'disabilitato' in {config_path})")
+    return attivi
 
 
 def _fetch_parsed(url: str):
