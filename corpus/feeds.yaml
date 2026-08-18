@@ -1,0 +1,298 @@
+# Feed RSS CONDIVISI tra tutti gli osservatori (ocx, ai, startup-thinking, futuri).
+# Non tocca ../src né ../config/feeds.yaml (quello resta per la produzione).
+# Un solo corpus per tutti: aggiungere qui una testata la rende disponibile a ogni
+# osservatorio, senza bisogno di ri-scaricare per ciascuno.
+
+feeds:
+  # --- testate nuove/corrette per il test AI (verificate scaricandole davvero) ---
+  - url: https://formiche.net/feed/
+    name: Formiche
+    # ! nuova, verificata
+
+  - url: https://www.osservatori.net/feed/
+    name: Osservatori Digital Innovation
+    # ! nuova, verificata
+
+  - url: https://www.wired.it/feed/rss
+    name: Wired Italia
+    # ! nuova — non verificata via fetch (sito ha bloccato il download diretto), pattern standard
+
+  - url: https://www.economist.com/science-and-technology/rss.xml
+    name: The Economist
+    # ! nuova — non verificata via fetch (sito ha bloccato il download diretto), pattern ufficiale noto
+
+  - url: https://www.bloomberg.com/feeds/technology/news.rss
+    name: Bloomberg Technology
+    # ! corretta — quella sotto (Bloomberg) punta a un feed podcast, non a news tech
+
+  - url: https://feeds.a.dj.com/rss/RSSWSJD.xml
+    name: The Wall Street Journal (WSJD)
+    # ! nuova, verificata
+
+  # --- resto, copiato da ../config/feeds.yaml ---
+  - url: https://feeds.feedburner.com/CMSWire
+    name: CMSWire
+
+  - url: https://www.forrester.com/blogs/feed
+    name: Forrester
+
+  - url: https://www.a16z.news/feed
+    name: A16
+
+  - url: https://martech.org/feed
+    name: MarTech
+
+  - url: https://customerthink.com/feed/
+    name: CustomerThink
+
+  - url: https://www.cxtoday.com/feed
+    name: CX Today
+
+  - url: https://www.engagecustomer.com/blog/rss.xml
+    name: Engage Customer
+
+  - url: https://www.agendadigitale.eu/feed/
+    name: Agenda Digitale
+
+  - url: https://www.ai4business.it/feed/
+    name: AI4Business
+
+  - url: https://www.corrierecomunicazioni.it/feed/
+    name: CorCom
+
+  - url: https://www.cybersecurity360.it/feed/
+    name: Cybersecurity360
+
+  - url: https://www.digital4.biz/feed/
+    name: Digital4
+
+  - url: https://www.economyup.it/feed/
+    name: EconomyUp
+
+  - url: https://www.esg360.it/feed/
+    name: ESG360
+
+  - url: https://www.healthtech360.it/feed/
+    name: HealthTech360
+
+  - url: https://www.innovationpost.it/feed/
+    name: Innovation Post
+
+  - url: https://www.pagamentidigitali.it/feed/
+    name: Pagamenti Digitali
+
+  - url: https://www.techcompany360.it/feed/
+    name: TechCompany360
+
+  - url: https://www.zerounoweb.it/feed/
+    name: ZeroUno
+
+  - url: https://www.quotidianosanita.it/feed/
+    name: QuotidianoSanità.it
+
+  - url: https://retailtechinnovationhub.com/?format=rss
+    name: retailtechinnovationhub.com
+
+  - url: https://www.datacenterdynamics.com/en/rss/
+    name: Data Center Dynamics
+
+  - url: https://panoramadellasanita.it/site/feed/
+    name: PanoramaDellaSanità.it
+
+  - url: https://www.dataversity.net/articles/feed/
+    name: Dataversity
+
+  - url: https://www.wired.com/feed/rss
+    name: Wired
+
+  - url: https://www.finextra.com/rss/channel.aspx?channel=news
+    name: Finextra
+    # ! corretta — /rss/news.aspx risponde 403, verificato 18/08
+
+  - url: https://www.cybersecitalia.it/feed/
+    name: Cybersecurity Italia
+
+  - url: https://www.ilsole24ore.com/rss/tecnologia.xml
+    name: Il Sole 24 Ore
+
+  - url: https://www.ledgerinsights.com/feed/
+    name: ledgerinsights.com
+
+  - url: https://www.forbes.com/innovation/feed/
+    name: Forbes
+    # ! corretta — /rss.xml non serve più un feed (risponde con JavaScript), verificato 18/08
+
+  - url: https://www.phocuswire.com/RSS/All-News
+    name: PhocusWire
+
+  - url: https://payloadspace.com/feed/
+    name: Payload
+
+  - url: https://cointelegraph.com/rss
+    name: Cointelegraph.com
+
+  - url: https://satellitetoday.com/feed
+    name: Via Satellite
+    # ! corretta — www.satellitetoday.com/feed/ risponde 403, l'apex senza www funziona, verificato 18/08
+
+  - url: https://spacenews.com/feed/
+    name: Space News
+
+  - url: https://www.healthcareitnews.com/home/feed
+    name: Healthcare IT News
+
+  - url: https://techcrunch.com/feed/
+    name: TechCrunch
+
+  - url: https://www.cio.com/feed/
+    name: CIO
+
+  - url: https://www.zdnet.com/news/rss.xml
+    name: Zdnet
+
+  - url: https://venturebeat.com/feed/
+    name: VentureBeat
+
+  - url: https://www.technologyreview.com/feed/
+    name: MIT Technology Review
+
+  - url: https://www.bloomberg.com/feed/podcast/etf-report.xml
+    name: Bloomberg
+    # nota: feed podcast, non news — tenuto per compatibilità con config/feeds.yaml, preferire "Bloomberg Technology" sopra
+
+  - url: https://www.reutersagency.com/feed/?best-topics=technology
+    name: Reuters
+    # nota: URL sospetto (dominio agency, query param anomalo) — non ho trovato un'alternativa ufficiale verificata
+
+  - url: https://www.cnbc.com/id/100003114/device/rss/rss.html
+    name: CNBC
+
+  - url: https://www.theverge.com/rss/index.xml
+    name: The Verge
+
+  - url: http://feeds.arstechnica.com/arstechnica/index
+    name: Ars Technica
+
+  - url: https://siliconangle.com/feed/
+    name: SiliconANGLE
+
+  - url: https://www.computerworld.com/feed/
+    name: Computerworld
+
+  - url: https://www.networkworld.com/feed/
+    name: NetworkWorld
+
+  - url: https://www.digitalhealth.net/news/feed/
+    name: Digital Health
+
+  - url: https://www.healthcaredive.com/feeds/news/
+    name: Healthcare Dive
+
+  - url: https://www.theregister.com/headlines.atom
+    name: The Register
+
+  - url: https://www.businessinsider.com/rss
+    name: Business Insider
+
+  - url: https://fortune.com/feed/
+    name: Fortune
+
+  - url: https://www.fastcompany.com/rss
+    name: Fast Company
+
+  - url: https://www.theguardian.com/technology/rss
+    name: The Guardian
+
+  - url: https://www.ft.com/rss/home
+    name: Financial Times
+
+  - url: http://feeds.bbci.co.uk/news/technology/rss.xml
+    name: BBC News
+
+  - url: https://www.aljazeera.com/xml/rss/all.xml
+    name: Al Jazeera
+
+  - url: https://www.engadget.com/rss.xml
+    name: Engadget
+
+  - url: https://gizmodo.com/rss
+    name: Gizmodo
+
+  - url: https://mashable.com/feed/
+    name: Mashable
+
+  - url: https://www.techradar.com/rss
+    name: TechRadar
+
+  - url: https://www.informationweek.com/rss.xml
+    name: InformationWeek
+
+  - url: https://www.emarketer.com/rss
+    name: eMarketer
+
+  - url: https://www.corriere.it/dynamic-feed/rss/section/Scienze.xml
+    name: Corriere della Sera - Tecnologia
+
+  - url: https://www.repubblica.it/rss/tecnologia/rss2.0.xml
+    name: La Repubblica - Tecnologia
+
+  - url: https://news.mit.edu/rss/topic/technology
+    name: MIT News - Technology
+
+  - url: https://economictimes.indiatimes.com/tech/rssfeeds/13357270.cms
+    name: The Economic Times - Tech
+
+  - url: https://www.ansa.it/sito/notizie/tecnologia/tecnologia_rss.xml
+    name: ANSA - Tecnologia
+
+  # --- testate nuove per il test "startup-thinking" (verificate scaricandole davvero) ---
+  - url: https://startupitalia.eu/feed
+    name: StartupItalia
+    # ! nuova, verificata
+
+  - url: https://sifted.eu/feed/?post_type=article
+    name: Sifted
+    # ! nuova, verificata
+
+  - url: https://tech.eu/feed/
+    name: Tech.eu
+    # ! nuova, verificata
+
+  - url: https://news.crunchbase.com/feed
+    name: Crunchbase News
+    # ! nuova, verificata
+
+  - url: https://thenextweb.com/feed
+    name: The Next Web
+    # ! nuova, verificata
+
+  - url: https://theinnovator.news/feed
+    name: The Innovator
+    # ! nuova, verificata
+
+  - url: https://www.i3p.it/news/feed
+    name: I3P
+    # ! nuova, verificata — attenzione: /feed da solo non funziona, serve /news/feed
+
+  - url: https://www.industriaitaliana.it/feed/
+    name: Industria Italiana
+    # ! nuova, verificata
+
+  - url: http://bebeez.it/feed
+    name: BeBeez
+    # ! nuova, verificata
+
+  - url: https://www.eu-startups.com/feed
+    name: EU-Startups
+    # ! nuova, verificata
+
+  - url: https://globalventuring.com/feed
+    name: Global Corporate Venturing
+    # ! nuova, verificata
+
+  # --- non incluse (nessun feed funzionante trovato) ---
+  # Forbes Italia: nessun feed RSS pubblico trovato
+  # Financecommunity.it: /feed restituisce 0 articoli, nessuna alternativa trovata
+  # Startup Business (startupbusiness.it): /feed esiste ma restituisce contenuto sbagliato
+  #   (cronaca romana, non startup) — dominio probabilmente riassegnato/mal configurato
+  # Pitchbook, Dealroom, Vestbee, Innov8rs, European Innovation Council: nessun RSS pubblico trovato
