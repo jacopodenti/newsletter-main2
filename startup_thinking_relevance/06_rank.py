@@ -207,7 +207,7 @@ def main():
     out_path = DATA / "ranking.csv"
     with open(out_path, "w", newline="", encoding="utf-8") as fcsv:
         w = csv.writer(fcsv)
-        w.writerow(["rank", "score_ranker", "pertinenza_llm", "confidence_llm", "parere_revisore", "titolo", "fonte", "data", "link", "cluster_id"])
+        w.writerow(["rank", "score_ranker", "pertinenza_llm", "confidence_llm", "motivo_llm", "titolo", "fonte", "data", "link", "cluster_id"])
         for rank, i in enumerate(order, 1):
             a = arts[i]
             pl = llm_map.get(a["title"])
