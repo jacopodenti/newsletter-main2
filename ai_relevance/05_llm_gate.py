@@ -14,12 +14,13 @@ import sys
 import time
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.path.insert(0, str(ROOT / "ocx_relevance"))
-from common import log, llm_client, LLM_MODEL
+from common import log, llm_client, LLM_MODEL, log_gate_cost
 
 DATA = HERE / "data"  # ATTENZIONE: common.py punta a ocx_relevance/data di default, qui serve ai_relevance/data
 
@@ -76,6 +77,8 @@ def run_gate(rows, max_workers=8):
     client = llm_client()
     lock = threading.Lock()
     tok = {"in": 0, "out": 0}
+    run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+    cost_log_path = DATA / "gate_cost_log.jsonl"
 
     def one(r):
         body = (r.get("full_text") or r.get("summary") or "")[:6000]
@@ -93,6 +96,7 @@ def run_gate(rows, max_workers=8):
                 with lock:
                     tok["in"] += resp.usage.input_tokens
                     tok["out"] += resp.usage.output_tokens
+                log_gate_cost(cost_log_path, run_id, r["title"], resp.usage.input_tokens, resp.usage.output_tokens)
                 return {
                     "llm": 1 if res.get("rilevante") else 0,
                     "llm_confidence": res.get("confidence"),

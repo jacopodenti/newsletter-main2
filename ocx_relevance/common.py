@@ -445,6 +445,32 @@ def llm_client() -> OpenAI:
                   base_url=os.environ["AZURE_OPENAI_ENDPOINT"])
 
 
+# Tariffe gpt-5.4 (€ per milione di token) — confermate dall'utente, stesse usate in
+# llm_only_rank.py. Finora il costo "di produzione" del gate viveva solo in un dizionario
+# scritto a mano (PROD_COST in llm_only_rank.py) che dichiara di venire dai log senza che
+# nessun log lo confermi — vedi ricognizione del 20/08. log_gate_cost() esiste per chiudere
+# quel buco: da qui in avanti ogni chiamata del gate persiste il proprio costo reale.
+GATE_PRICE_EUR_PER_1M = {"in": 2.50, "out": 15.00}
+_GATE_COST_LOG_LOCK = threading.Lock()
+
+
+def log_gate_cost(log_path, run_id, title, tokens_in, tokens_out):
+    """Appende una riga jsonl con il costo REALE di una singola chiamata del gate. Non
+    sovrascrive: il file accumula across run, ogni riga porta run_id per poterle raggruppare."""
+    cost_eur = (tokens_in * GATE_PRICE_EUR_PER_1M["in"] + tokens_out * GATE_PRICE_EUR_PER_1M["out"]) / 1_000_000
+    record = {
+        "run_id": run_id,
+        "title": title,
+        "tokens_in": tokens_in,
+        "tokens_out": tokens_out,
+        "cost_eur": round(cost_eur, 6),
+    }
+    with _GATE_COST_LOG_LOCK:
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    return cost_eur
+
+
 def ocx_description() -> str:
     import json
     d = json.load(open(OSSERVATORI))

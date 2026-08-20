@@ -16,9 +16,10 @@ import sys
 import time
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent))
-from common import log, llm_client, ocx_description, LLM_MODEL, DATA
+from common import log, llm_client, ocx_description, LLM_MODEL, DATA, log_gate_cost
 
 # Criteri di pertinenza — costante a sé (non solo testo inline nel PROMPT) così altri
 # script (es. llm_only_rank.py) possono riusarli senza duplicarli/rischiare disallineamento.
@@ -71,6 +72,8 @@ def run_gate(rows, max_workers=8):
     desc = ocx_description()
     lock = threading.Lock()
     tok = {"in": 0, "out": 0}
+    run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+    cost_log_path = DATA / "gate_cost_log.jsonl"
 
     # classifica un singolo articolo: prompt con descrizione osservatorio + testo,
     # retry con backoff se l'API fallisce (rate limit, errori transitori)
@@ -90,6 +93,7 @@ def run_gate(rows, max_workers=8):
                 with lock:
                     tok["in"] += resp.usage.input_tokens
                     tok["out"] += resp.usage.output_tokens
+                log_gate_cost(cost_log_path, run_id, r["title"], resp.usage.input_tokens, resp.usage.output_tokens)
                 return {
                     "llm": 1 if res.get("rilevante") else 0,
                     "llm_confidence": res.get("confidence"),
