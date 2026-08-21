@@ -9,6 +9,7 @@ import time
 import json
 import hashlib
 import threading
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -476,3 +477,134 @@ def ocx_description() -> str:
     d = json.load(open(OSSERVATORI))
     o = next(x for x in d if x["slug"] == "omnichannel-customer-experience")
     return o.get("descrizione_enhanced") or o["descrizione"]
+
+
+EDITORIAL_GROUPS_PATH = ROOT / "config" / "editorial_groups.json"
+
+
+def load_editorial_groups() -> dict:
+    """testata -> gruppo editoriale, da config/editorial_groups.json. Copertura verificata
+    il 21/08: 4 gruppi su ~85 testate — una testata assente vale come gruppo di se stessa
+    (vedi gruppo_editoriale_di), quindi max_per_gruppo_editoriale oggi agisce solo su queste
+    testate mappate, non sulla concentrazione delle fonti in generale."""
+    d = json.load(open(EDITORIAL_GROUPS_PATH, encoding="utf-8"))
+    testata_to_gruppo = {}
+    for gruppo, testate in d["gruppi"].items():
+        for t in testate:
+            testata_to_gruppo[t] = gruppo
+    return testata_to_gruppo
+
+
+def gruppo_editoriale_di(testata: str, groups_map: dict) -> str:
+    return groups_map.get(testata, testata)
+
+
+def select_for_newsletter(candidates: list[dict], config: dict, already_selected_urls: set) -> tuple:
+    """
+    Compositore: SELEZIONA soltanto, non riordina e non rivaluta la pertinenza — l'ordine
+    interno resta sempre quello di 'rank' (kNN). Riceve TUTTI gli articoli visti dal gate
+    (Si e No, non solo gli approvati): serve per il ripescaggio, il primo passo di recupero
+    slot, prima di allentare qualunque vincolo.
+
+    candidates: dict con almeno title, rank, pertinenza_llm ('Si'/'No'), fonte, content_type
+    (None o 'non_classificato' ammessi), url_canonico, gate_confidence (opzionale — se assente
+    il ripescaggio usa il rank come proxy di "bocciato per poco", meno preciso ma unico dato
+    disponibile sui run storici senza confidence persistita).
+    config: n_articoli_totali, max_per_testata, max_per_gruppo_editoriale,
+    max_per_content_type (dict per slug, categorie assenti = illimitate), ordine_allentamento
+    (lista, "ripescaggio" per primo se presente), max_round_allentamento.
+    already_selected_urls: url_canonico già in store con selected_for_newsletter=true — MAI
+    allentato, esclusione sempre valida.
+
+    Ritorna (selezionati, esclusi, log_allentamento). Ogni selezionato ha "_via" (gate-si /
+    ripescato / round1.../) e "_gruppo". Ogni escluso ha "motivo_esclusione".
+    """
+    groups_map = load_editorial_groups()
+    n_tot = config["n_articoli_totali"]
+    max_ct_base = config["max_per_content_type"]
+    max_round = config.get("max_round_allentamento", 2)
+    ordine = config.get("ordine_allentamento", ["ripescaggio", "max_per_testata",
+                                                  "max_per_gruppo_editoriale", "max_per_content_type"])
+
+    eligible = [c for c in candidates if c.get("url_canonico") not in already_selected_urls]
+    esclusi_pubblicati = [c for c in candidates if c.get("url_canonico") in already_selected_urls]
+
+    si_pool = sorted([c for c in eligible if c.get("pertinenza_llm") == "Si"], key=lambda c: c["rank"])
+    # Ripescaggio ordinato per confidence crescente (il "No" meno sicuro per primo — bocciato
+    # per poco); se gate_confidence manca, ricade sul rank come proxy meno preciso.
+    no_pool = sorted([c for c in eligible if c.get("pertinenza_llm") != "Si"],
+                      key=lambda c: c["gate_confidence"] if c.get("gate_confidence") is not None else c["rank"])
+
+    selected: list[dict] = []
+    reason_by_title: dict = {}
+    cnt_testata, cnt_gruppo, cnt_ct = Counter(), Counter(), Counter()
+
+    def try_fill(pool, cap_testata, cap_gruppo, cap_ct, via):
+        for c in pool:
+            if any(s["title"] == c["title"] for s in selected):
+                continue
+            if len(selected) >= n_tot:
+                reason_by_title[c["title"]] = "slot pieni (nessun vincolo violato, semplicemente non è arrivato in tempo)"
+                continue
+            fonte = c.get("fonte", "")
+            gruppo = gruppo_editoriale_di(fonte, groups_map)
+            ct = c.get("content_type") or "non_classificato"
+            if cnt_testata[fonte] >= cap_testata:
+                reason_by_title[c["title"]] = f"max_per_testata raggiunto ({fonte}, {cnt_testata[fonte]}/{cap_testata})"
+                continue
+            if cnt_gruppo[gruppo] >= cap_gruppo:
+                reason_by_title[c["title"]] = f"max_per_gruppo_editoriale raggiunto ({gruppo}, {cnt_gruppo[gruppo]}/{cap_gruppo})"
+                continue
+            if ct != "non_classificato" and cnt_ct[ct] >= cap_ct.get(ct, 10 ** 9):
+                reason_by_title[c["title"]] = f"max_per_content_type raggiunto ({ct}, {cnt_ct[ct]}/{cap_ct.get(ct)})"
+                continue
+            selected.append({**c, "_via": via, "_gruppo": gruppo})
+            reason_by_title.pop(c["title"], None)
+            cnt_testata[fonte] += 1
+            cnt_gruppo[gruppo] += 1
+            cnt_ct[ct] += 1
+
+    log: list[str] = []
+    cur_testata = config["max_per_testata"]
+    cur_gruppo = config["max_per_gruppo_editoriale"]
+    cur_ct = dict(max_ct_base)
+
+    try_fill(si_pool, cur_testata, cur_gruppo, cur_ct, "gate-si")
+    if len(selected) >= n_tot:
+        log.append("pieno senza allentare nulla")
+
+    if len(selected) < n_tot and "ripescaggio" in ordine:
+        before = len(selected)
+        try_fill(no_pool, cur_testata, cur_gruppo, cur_ct, "ripescato")
+        gained = len(selected) - before
+        log.append(f"ripescaggio: {gained} articoli bocciati dal gate recuperati (nessun vincolo allentato)"
+                    if gained else "ripescaggio tentato: nessun articolo bocciato recuperabile senza allentare vincoli")
+
+    round_vincoli = [v for v in ordine if v != "ripescaggio"]
+    for i, vincolo in enumerate(round_vincoli[:max_round], start=1):
+        if len(selected) >= n_tot:
+            break
+        before = len(selected)
+        if vincolo == "max_per_testata":
+            cur_testata += 1
+        elif vincolo == "max_per_gruppo_editoriale":
+            cur_gruppo += 1
+        elif vincolo == "max_per_content_type":
+            cur_ct = {k: v + 1 for k, v in cur_ct.items()}
+        try_fill(si_pool + no_pool, cur_testata, cur_gruppo, cur_ct, f"round{i}:{vincolo}")
+        gained = len(selected) - before
+        log.append(f"round {i} — allentato {vincolo} (+1): recuperati {gained} articoli" if gained
+                   else f"round {i} — allentato {vincolo} (+1): nessun articolo recuperabile")
+
+    if len(selected) < n_tot:
+        log.append(f"BLOCCATO: {n_tot - len(selected)} slot restano vuoti dopo {max_round} round di "
+                   f"allentamento — candidati eleggibili insufficienti in questo run, non un errore del compositore")
+
+    selected_titles = {s["title"] for s in selected}
+    esclusi = [{**c, "motivo_esclusione": reason_by_title.get(
+                    c["title"], "mai valutato: gli slot erano già pieni prima del suo turno")}
+               for c in eligible if c["title"] not in selected_titles]
+    esclusi += [{**c, "motivo_esclusione": "già pubblicato (selected_for_newsletter in store)"}
+                for c in esclusi_pubblicati]
+
+    return selected, esclusi, log
