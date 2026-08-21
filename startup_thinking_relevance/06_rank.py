@@ -27,8 +27,10 @@ ROOT = HERE.parent
 sys.path.insert(0, str(ROOT / "ocx_relevance"))
 from common import (log, embed_texts_cached, fetch_fulltext, format_date, parse_date, detect_lang,
                     canonicalize_url, load_tracking_params, dedup_by_content_hash, content_hash,
-                    upsert_articles_store)
+                    upsert_articles_store, llm_client)
 from ranker import build_lang_pools, score_similarity_multilang, find_similar_clusters, CLUSTER_SIM_THRESHOLD
+sys.path.insert(0, str(ROOT / "corpus"))
+import tag_articles
 import importlib
 sys.path.insert(0, str(HERE))
 gate = importlib.import_module("05_llm_gate")
@@ -203,11 +205,39 @@ def main():
     si = sum(1 for a in topn if a.get("llm") == 1)
     log(f"     LLM-Si tra i primi {args.topn}: {si}  |  token {gtok['in']} in + {gtok['out']} out")
 
+    # 5b) tagging — content_type + target_audience su TUTTI i candidati visti dal gate, Si e
+    # No: il compositore a valle ripesca dai bocciati per riempire gli slot prima di allentare
+    # qualunque vincolo, e per ripescare deve sapere che tipo di contenuto è. Chiamata SEPARATA
+    # dal gate (testato il 20/08: nella stessa chiamata di pertinenza l'accordo con Filippo
+    # scendeva) — non tocca in nessun modo pertinenza/ordine/score.
+    log(f"  5b) tagging content_type + target_audience sui {len(topn)} candidati (Si e No)...")
+    tag_client = llm_client()
+
+    def _tag(a):
+        body = (a.get("full_text") or a.get("summary") or "")[:6000]
+        try:
+            ct = tag_articles.classify_content_type(a["title"], body, client=tag_client)
+        except Exception:
+            ct = {"content_type": None}
+        try:
+            aud = tag_articles.classify_audience(a["title"], body, client=tag_client)
+        except Exception:
+            aud = {"target_audience": None}
+        return a["title"], ct.get("content_type"), aud.get("target_audience")
+
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        tag_results = list(ex.map(_tag, topn))
+    content_type_map = {t: ct for t, ct, _ in tag_results}
+    audience_map = {t: aud for t, _, aud in tag_results}
+    n_ct_non_class = sum(1 for _, ct, _ in tag_results if ct in (None, "non_classificato"))
+    log(f"     content_type: {n_ct_non_class} non_classificato/{len(topn)}")
+
     # 6) output — CSV
     out_path = DATA / "ranking.csv"
     with open(out_path, "w", newline="", encoding="utf-8") as fcsv:
         w = csv.writer(fcsv)
-        w.writerow(["rank", "score_ranker", "pertinenza_llm", "confidence_llm", "motivo_llm", "titolo", "fonte", "data", "link", "cluster_id"])
+        w.writerow(["rank", "score_ranker", "pertinenza_llm", "confidence_llm", "motivo_llm", "content_type",
+                    "target_audience", "titolo", "fonte", "data", "link", "cluster_id"])
         for rank, i in enumerate(order, 1):
             a = arts[i]
             pl = llm_map.get(a["title"])
@@ -217,6 +247,8 @@ def main():
                         ("Si" if pl == 1 else "No") if pl is not None else "",
                         round(float(conf), 2) if conf is not None else "",
                         motivo_map.get(a["title"], ""),
+                        content_type_map.get(a["title"], ""),
+                        audience_map.get(a["title"], ""),
                         a["title"], a["fonte"], format_date(a.get("published_date", "")), a["link"],
                         cid if cid is not None else ""])
     log(f"\n  salvato: {out_path}")
