@@ -38,6 +38,7 @@ fare nessuna chiamata.
 """
 import json
 import sys
+import threading
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -265,20 +266,56 @@ def build_audience_prompt(title: str, body: str) -> str:
 
 def classify_content_type(title: str, body: str, client=None) -> dict:
     """Chiamata al modello di tagging configurato in config/models.json — non il gate,
-    non hardcoded. Separata dal gate di pertinenza."""
+    non hardcoded. Separata dal gate di pertinenza. Ritorna anche i token usati
+    (tokens_in/tokens_out): senza, il costo reale del tagging sarebbe scartato ad ogni
+    chiamata come accadeva per il gate prima di log_gate_cost — vedi tag_cost()."""
     client = client or llm_client()
     prompt = build_content_type_prompt(title, body)
     resp = client.responses.create(model=tagging_model(), input=prompt)
-    return json.loads(resp.output_text.strip())
+    result = json.loads(resp.output_text.strip())
+    result["_tokens_in"] = resp.usage.input_tokens
+    result["_tokens_out"] = resp.usage.output_tokens
+    return result
 
 
 def classify_audience(title: str, body: str, client=None) -> dict:
     """Chiamata al modello di tagging configurato in config/models.json — separata dal gate
-    e dalla classificazione di content_type."""
+    e dalla classificazione di content_type. Ritorna anche i token usati, stesso motivo di
+    classify_content_type."""
     client = client or llm_client()
     prompt = build_audience_prompt(title, body)
     resp = client.responses.create(model=tagging_model(), input=prompt)
-    return json.loads(resp.output_text.strip())
+    result = json.loads(resp.output_text.strip())
+    result["_tokens_in"] = resp.usage.input_tokens
+    result["_tokens_out"] = resp.usage.output_tokens
+    return result
+
+
+def tag_cost_eur(tokens_in: int, tokens_out: int) -> float:
+    """Costo di UNA chiamata di tagging alle tariffe di config/models.json per il modello
+    di tagging configurato. ATTENZIONE: per gpt-5.4-mini/nano quelle tariffe sono stimate
+    per analogia con gpt-4.1, non confermate da Azure — vedi models.json['_avviso_prezzi']."""
+    prices = json.loads(MODELS_CONFIG_PATH.read_text(encoding="utf-8"))["price_eur_per_1m"]
+    p = prices[tagging_model()]
+    return (tokens_in * p["in"] + tokens_out * p["out"]) / 1_000_000
+
+
+_TAG_COST_LOG_LOCK = threading.Lock()
+
+
+def log_tag_cost(log_path, run_id: str, title: str, field: str, tokens_in: int, tokens_out: int) -> float:
+    """Appende una riga jsonl con il costo REALE di una chiamata di tagging (content_type o
+    target_audience) — stesso motivo di common.log_gate_cost: senza, il costo del tagging
+    sarebbe prodotto e scartato ad ogni run, non verificabile dopo senza rispendere."""
+    cost_eur = tag_cost_eur(tokens_in, tokens_out)
+    record = {
+        "run_id": run_id, "title": title, "field": field, "model": tagging_model(),
+        "tokens_in": tokens_in, "tokens_out": tokens_out, "cost_eur": round(cost_eur, 6),
+    }
+    with _TAG_COST_LOG_LOCK:
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    return cost_eur
 
 
 def tag_prompts_preview(title: str = "{title}", body: str = "{body}") -> tuple[str, str]:

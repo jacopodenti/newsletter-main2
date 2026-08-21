@@ -18,6 +18,7 @@ import json
 import sys
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -212,15 +213,21 @@ def main():
     # scendeva) — non tocca in nessun modo pertinenza/ordine/score.
     log(f"  5b) tagging content_type + target_audience sui {len(topn)} candidati (Si e No)...")
     tag_client = llm_client()
+    tag_run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+    tag_cost_log_path = DATA / "tag_cost_log.jsonl"
 
     def _tag(a):
         body = (a.get("full_text") or a.get("summary") or "")[:6000]
         try:
             ct = tag_articles.classify_content_type(a["title"], body, client=tag_client)
+            tag_articles.log_tag_cost(tag_cost_log_path, tag_run_id, a["title"], "content_type",
+                                      ct["_tokens_in"], ct["_tokens_out"])
         except Exception:
             ct = {"content_type": None}
         try:
             aud = tag_articles.classify_audience(a["title"], body, client=tag_client)
+            tag_articles.log_tag_cost(tag_cost_log_path, tag_run_id, a["title"], "target_audience",
+                                      aud["_tokens_in"], aud["_tokens_out"])
         except Exception:
             aud = {"target_audience": None}
         return a["title"], ct.get("content_type"), aud.get("target_audience")
@@ -230,7 +237,7 @@ def main():
     content_type_map = {t: ct for t, ct, _ in tag_results}
     audience_map = {t: aud for t, _, aud in tag_results}
     n_ct_non_class = sum(1 for _, ct, _ in tag_results if ct in (None, "non_classificato"))
-    log(f"     content_type: {n_ct_non_class} non_classificato/{len(topn)}")
+    log(f"     content_type: {n_ct_non_class} non_classificato/{len(topn)}  (costo: {tag_cost_log_path.name})")
 
     # 6) output — CSV
     out_path = DATA / "ranking.csv"
