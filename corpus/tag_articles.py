@@ -10,11 +10,16 @@ umano è sceso (78,0%->70,7%, kappa 0,495->0,389, soprattutto per calo di precis
 gate resta invariato e il tagging vive qui.
 
 Content type: few-shot, riusa gli esempi scritti a mano in ../src/classify_ct_llm.py (FEW_SHOT)
-e le descrizioni estese di config/classification_taxonomy.json. Modello di produzione
-(common.LLM_MODEL = gpt-5.4), non gpt-5.4-nano usato nella valutazione dell'84% (vedi
-revisione/ricognizione_tecnica_2026-08-20.md — quella valutazione non è direttamente
-trasferibile: modello diverso, scelta forzata senza non_classificato, input troncato al
-sommario invece che al testo intero).
+e le descrizioni estese di config/classification_taxonomy.json.
+
+Modello: NON hardcoded — letto da config/models.json ("tagging_model"), separato dal modello
+del gate ("gate_model"). Verificato il 21/08: gpt-5.4-nano dà una distribuzione content_type
+simile a gpt-5.4 (differenza massima 9 punti su 150 articoli reali) a un ventesimo del costo —
+promosso a default del tagging. Il gate resta su gpt-5.4: sia nano (recall 35% contro 81-87%)
+sia mini (kappa 0,384 sotto la soglia 0,45) falliscono lì, vedi config/models.json.
+Diverso anche dalla valutazione dell'84% del 26/06 (gpt-5.4-nano lì per un motivo diverso — era
+il default non intenzionale di AZURE_OPENAI_DEPLOYMENT — su scelta forzata senza
+non_classificato e input troncato al sommario, non il testo intero: non è la stessa misura).
 
 Target audience: NON "chi ha autorità sul tema" ma "quale funzione trarrebbe beneficio
 operativo dall'articolo" — riformulazione richiesta perché il primo tentativo (20/08) produceva
@@ -39,15 +44,24 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "ocx_relevance"))
 sys.path.insert(0, str(ROOT / "src"))
 
-from common import llm_client, LLM_MODEL  # noqa: E402
+from common import llm_client  # noqa: E402
 from classify_ct_llm import FEW_SHOT as CT_FEW_SHOT  # noqa: E402 — riuso, non copia
 
 TAXONOMY_PATH = ROOT / "config" / "classification_taxonomy.json"
+MODELS_CONFIG_PATH = ROOT / "config" / "models.json"
 BODY_MAX_CHARS = 6000  # stesso cap usato dal gate (05_llm_gate.py), non il sommario troncato
 
 
 def _load_taxonomy():
     return json.loads(TAXONOMY_PATH.read_text(encoding="utf-8"))
+
+
+def tagging_model() -> str:
+    """Modello usato dal tagging — parametro esplicito in config/models.json, non hardcoded:
+    cambiarlo è una riga in quel file, non una modifica al codice. Verificato il 21/08 su
+    gpt-5.4-nano (distribuzione simile a gpt-5.4, costo un ventesimo) — non lo stesso modello
+    del gate (config["gate_model"], resta gpt-5.4: nano e mini falliscono lì, vedi _nota_gate_model)."""
+    return json.loads(MODELS_CONFIG_PATH.read_text(encoding="utf-8"))["tagging_model"]
 
 
 # --- target_audience: definizioni RISCRITTE sul beneficio operativo, non sull'autorità sul
@@ -250,18 +264,20 @@ def build_audience_prompt(title: str, body: str) -> str:
 
 
 def classify_content_type(title: str, body: str, client=None) -> dict:
-    """Una chiamata a gpt-5.4, separata dal gate. Non ancora invocata da nessuno step."""
+    """Chiamata al modello di tagging configurato in config/models.json — non il gate,
+    non hardcoded. Separata dal gate di pertinenza."""
     client = client or llm_client()
     prompt = build_content_type_prompt(title, body)
-    resp = client.responses.create(model=LLM_MODEL, input=prompt)
+    resp = client.responses.create(model=tagging_model(), input=prompt)
     return json.loads(resp.output_text.strip())
 
 
 def classify_audience(title: str, body: str, client=None) -> dict:
-    """Una chiamata a gpt-5.4, separata dal gate e dalla classificazione di content_type."""
+    """Chiamata al modello di tagging configurato in config/models.json — separata dal gate
+    e dalla classificazione di content_type."""
     client = client or llm_client()
     prompt = build_audience_prompt(title, body)
-    resp = client.responses.create(model=LLM_MODEL, input=prompt)
+    resp = client.responses.create(model=tagging_model(), input=prompt)
     return json.loads(resp.output_text.strip())
 
 

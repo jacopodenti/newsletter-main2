@@ -1,0 +1,15 @@
+{
+  "_avviso_prezzi": "ATTENZIONE — le tariffe di gpt-5.4-mini e gpt-5.4-nano qui sotto sono STIMATE per analogia con il rapporto di sconto della famiglia gpt-4.1 (mini=5x, nano=20x più economico di gpt-5.4 su input e output). NON sono confermate da Azure: la pagina prezzi pubblica mostra placeholder '$-' per questi modelli (verificato il 21/08). Solo la tariffa di gpt-5.4 è confermata dall'utente. Qualunque proiezione di costo (inclusa quella a 60 osservatori) che usa le tariffe mini/nano eredita questa incertezza — va segnalato ogni volta che quella proiezione viene condivisa, in particolare con la PM. Per un numero vero: Azure Cost Management + Billing nel portale (dati reali di fatturazione, non una stima) o il calcolatore prezzi Azure con la sottoscrizione giusta selezionata — nessuno dei due è raggiungibile da qui, serve accesso al portale Azure della sottoscrizione.",
+
+  "gate_model": "gpt-5.4",
+  "tagging_model": "gpt-5.4-nano",
+
+  "_nota_gate_model": "Testato il 21/08 su gpt-5.4-nano e gpt-5.4-mini, stessi 150 articoli Startup Thinking: nano crolla in recall (35,1% contro 81-87% di gpt-5.4, degrado silenzioso — la newsletter si riempie comunque, solo con articoli peggiori). mini ha recall alto (97,3%) ma kappa 0,384, sotto la soglia 0,45 fissata per considerarlo un candidato serio. Entrambi scartati per il gate: resta gpt-5.4.",
+  "_nota_tagging_model": "gpt-5.4-nano confermato sul tagging il 21/08: distribuzione content_type simile a gpt-5.4 (differenza massima 9 punti, nessuna categoria collassata), costo 4 centesimi/150 articoli contro 86 centesimi.",
+
+  "price_eur_per_1m": {
+    "gpt-5.4": {"in": 2.50, "out": 15.00, "fonte": "confermato dall'utente"},
+    "gpt-5.4-mini": {"in": 0.50, "out": 3.00, "fonte": "STIMATO per analogia con gpt-4.1 (5x), NON confermato da Azure"},
+    "gpt-5.4-nano": {"in": 0.125, "out": 0.75, "fonte": "STIMATO per analogia con gpt-4.1 (20x), NON confermato da Azure"}
+  }
+}
