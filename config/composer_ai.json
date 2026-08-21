@@ -1,0 +1,15 @@
+{
+  "_nota": "n_articoli_totali derivato indirettamente: ExportNewsLetters.xlsx non registra il numero di appartenenza (una data per articolo, non un numero), quindi non e' misurabile come per OCX/Startup. Confermato con l'utente (21/08): cadenza quindicinale come OCX. 500 selezioni dal 2022-09-26 al 2024-10-09 (744 giorni, ~53 numeri quindicinali) -> 9,4 articoli/numero, arrotondato a 9. max_per_testata NON misurato per AI specificamente (nessun raggruppamento per numero disponibile): riusa lo stesso default di OCX/Startup, non derivato in modo indipendente. max_per_content_type da tagging content_type su un campione di 150/500 selezioni storiche (titolo+riassunto), non sull'intero storico.",
+  "n_articoli_totali": 9,
+  "max_per_testata": 2,
+  "max_per_gruppo_editoriale": 3,
+  "max_per_content_type": {
+    "analysis": 5,
+    "vendor_announcement": 2,
+    "regulation": 1,
+    "research_report": 1,
+    "case_study": 1
+  },
+  "ordine_allentamento": ["ripescaggio", "max_per_testata", "max_per_gruppo_editoriale", "max_per_content_type"],
+  "max_round_allentamento": 2
+}

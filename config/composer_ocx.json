@@ -1,0 +1,15 @@
+{
+  "_nota": "Default derivati il 21/08 da OCX26_Newsletter.xlsx (11 numeri reali) + tagging content_type su 107 selezioni storiche (titolo+riassunto, non testo intero — vedi nota metodologica in revisione/). n_articoli_totali e max_per_testata sono misurati (10,3 e 9,2 di media). max_per_content_type e' la quota storica arrotondata CON margine, non il valore esatto: lo scopo del vincolo e' impedire uno sbilanciamento estremo, non congelare il mix storico (analysis era il 77% delle selezioni storiche, qui il tetto lascia comunque margine).",
+  "n_articoli_totali": 10,
+  "max_per_testata": 2,
+  "max_per_gruppo_editoriale": 3,
+  "max_per_content_type": {
+    "analysis": 8,
+    "case_study": 2,
+    "vendor_announcement": 1,
+    "research_report": 1,
+    "regulation": 1
+  },
+  "ordine_allentamento": ["ripescaggio", "max_per_testata", "max_per_gruppo_editoriale", "max_per_content_type"],
+  "max_round_allentamento": 2
+}

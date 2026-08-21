@@ -1,0 +1,15 @@
+{
+  "_nota": "Default derivati il 21/08 da SUT_Elenco news.xlsx (25 numeri reali, media 6,4 articoli/numero, 4,8 testate distinte/numero) + tagging content_type su tutte le 161 selezioni storiche (titolo+riassunto). Simulato sui 150 articoli reali di Startup Thinking (rank+gate+testata+content_type di un run reale): con questi valori il compositore riempie tutti gli slot SENZA allentare nulla (nemmeno il ripescaggio). Il ripescaggio comincia a servire solo se n_articoli_totali sale a 8+; le quote vere e proprie non sono mai state necessarie nel test, fino a n_articoli_totali=10.",
+  "n_articoli_totali": 6,
+  "max_per_testata": 2,
+  "max_per_gruppo_editoriale": 3,
+  "max_per_content_type": {
+    "vendor_announcement": 3,
+    "analysis": 2,
+    "case_study": 1,
+    "research_report": 1,
+    "regulation": 1
+  },
+  "ordine_allentamento": ["ripescaggio", "max_per_testata", "max_per_gruppo_editoriale", "max_per_content_type"],
+  "max_round_allentamento": 2
+}

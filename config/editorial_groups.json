@@ -1,0 +1,11 @@
+{
+  "_nota": "Copertura verificata il 21/08: 4 gruppi noti su ~85 testate configurate in corpus/feeds.yaml (Foundry, Digital360, Bloomberg L.P., Conde Nast — verificati via ricerca web nell'audit del 12-13/08). Una testata assente da questa mappa vale come gruppo di se stessa (vedi common.gruppo_editoriale_di()): il vincolo max_per_gruppo_editoriale agisce oggi solo su queste ~19 testate mappate, non sulla concentrazione delle fonti in generale. Ampliare questa mappa è l'unico modo per estendere la leva.",
+  "gruppi": {
+    "Foundry (ex-IDG)": ["CIO", "Computerworld", "NetworkWorld"],
+    "Digital360": ["Agenda Digitale", "AI4Business", "CorCom", "Cybersecurity360", "Digital4",
+                   "EconomyUp", "ESG360", "HealthTech360", "Innovation Post", "Pagamenti Digitali",
+                   "TechCompany360", "ZeroUno"],
+    "Bloomberg L.P.": ["Bloomberg", "Bloomberg Technology"],
+    "Conde Nast": ["Wired", "Ars Technica"]
+  }
+}
