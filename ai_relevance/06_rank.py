@@ -30,7 +30,7 @@ from common import (log, embed_texts_cached, fetch_fulltext, format_date, parse_
                     canonicalize_url, load_tracking_params, dedup_by_content_hash, content_hash,
                     upsert_articles_store, llm_client, downgrade_colliding_fulltext, truncate_obfuscated_text,
                     load_obfuscation_threshold)
-from ranker import build_lang_pools, score_similarity_multilang, find_similar_clusters, CLUSTER_SIM_THRESHOLD
+from ranker import score_similarity, find_similar_clusters, CLUSTER_SIM_THRESHOLD
 sys.path.insert(0, str(ROOT / "corpus"))
 import tag_articles
 import importlib
@@ -152,15 +152,16 @@ def main():
     log(f"     vettori {X.shape}, token spesi {tok}  |  cache: {embed_stats['n_cache_hit']} hit, "
         f"{embed_stats['n_nuovi']} nuovi, {embed_stats['potati']} potati per età")
 
-    # 3) ranker — somiglianza agli esempi (NIENTE addestramento), per lingua
+    # 3) ranker — somiglianza agli esempi (NIENTE addestramento). Confronto UNICO, non
+    # separato per lingua (vedi nota in ranker.py: text-embedding-3-large è multilingua,
+    # la separazione veniva comunque aggirata dal proprio fallback su Startup Thinking).
     log("  3) punteggio per somiglianza agli esempi (reference_set.npz)...")
     ref = np.load(MODELS / "reference_set.npz", allow_pickle=True)
-    pools = build_lang_pools(ref["X"], ref["y"], ref["langs"])
-    log("     pool di riferimento per lingua: " + ", ".join(f"{l}={len(p[1])}" for l, p in pools.items()))
+    log(f"     esempi di riferimento: {len(ref['y'])}  (Si={int(ref['y'].sum())}, No={int((1 - ref['y']).sum())})")
     arts_langs = np.array([detect_lang(f"{a['title']}. {a['full_text']}") for a in arts])
     for l, n in Counter(arts_langs).items():
         log(f"     articoli in '{l}': {n}")
-    scores = score_similarity_multilang(X, arts_langs, pools, fallback_lang="it", k=3)
+    scores = score_similarity(X, ref["X"], ref["y"], k=3)
     order = np.argsort(-scores)
 
     # 4) sospetti duplicati — su TUTTO il corpus classificato, non solo sui candidati

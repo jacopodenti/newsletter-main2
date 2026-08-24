@@ -431,8 +431,8 @@ def fetch_fulltext(url: str, fallback: str = "") -> tuple[str, str]:
                                    favor_precision=True) if r.ok else None
     except Exception:
         body = None
-    # Margine EURISTICO, non calibrato su dati (a differenza di MIN_PER_CLASS/
-    # CLUSTER_SIM_THRESHOLD in ranker.py): non basta che il testo scrapato sia più lungo
+    # Margine EURISTICO, non calibrato su dati (a differenza di CLUSTER_SIM_THRESHOLD in
+    # ranker.py): non basta che il testo scrapato sia più lungo
     # del fallback (il summary RSS) di un solo carattere — serve un margine minimo perché
     # un estratto di poco più lungo del summary è spesso il segno di uno scraping fallito
     # a metà (es. un frammento di paywall o cookie banner), non un vero guadagno di

@@ -5,15 +5,15 @@ Il punteggio di una news = quanto assomiglia agli esempi "Si" più vicini,
 meno quanto assomiglia agli esempi "No" più vicini (coseno).
 Nessun modello da addestrare: gli esempi OCX SONO il riferimento.
 Aggiungere un esempio = aggiungere un vettore, subito usabile.
+
+Confronto UNICO, non separato per lingua (rimossi build_lang_pools/score_similarity_multilang/
+MIN_PER_CLASS il 25/08): text-embedding-3-large è multilingua per costruzione, e la separazione
+per lingua veniva comunque aggirata dal proprio fallback su Startup Thinking, il cui pool
+inglese ha solo 3 esempi Sì (sotto qualunque soglia MIN_PER_CLASS sensata) — ogni articolo
+inglese finiva confrontato con l'italiano lo stesso, ma passando per un meccanismo che
+sembrava fare una cosa (confronto per lingua) e ne faceva un'altra (fallback quasi sempre).
 """
 import numpy as np
-
-# Sotto questa soglia di esempi per classe, il pool di una lingua è troppo
-# rumoroso/sbilanciato per fare kNN affidabile (es. "0 positivi inglesi, 73
-# negativi inglesi": qualunque articolo inglese finirebbe classificato "No"
-# solo perché non esistono esempi positivi con cui confrontarlo). In quel
-# caso si usa il pool di fallback (italiano: è quello sempre solido).
-MIN_PER_CLASS = 10
 
 # Soglia di coseno sopra la quale due articoli tra i candidati sono "sospetti duplicati"
 # (stessa notizia/evento raccontata da fonti diverse). Calibrata su un caso reale
@@ -46,34 +46,6 @@ def score_similarity(X_new, X_examples, y_examples, k=3):
     sp = _topk_mean(Xn @ pos.T, k)
     sn = _topk_mean(Xn @ neg.T, k)
     return sp - sn
-
-
-def build_lang_pools(X, y, langs):
-    """Divide gli esempi di riferimento in un pool per lingua.
-    Ritorna {lingua: (X_lingua, y_lingua)}."""
-    X, y, langs = np.asarray(X), np.asarray(y), np.asarray(langs)
-    return {lang: (X[langs == lang], y[langs == lang]) for lang in set(langs)}
-
-
-def score_similarity_multilang(X_new, langs_new, pools, fallback_lang="it", k=3, min_per_class=MIN_PER_CLASS):
-    """Come score_similarity, ma ogni articolo è confrontato SOLO con gli esempi della sua
-    stessa lingua (rilevanza linguistica: un articolo inglese va confrontato con esempi
-    inglesi, non con l'italiano — pool misti mascherano un bias quando lingua e label sono
-    correlate nel set di riferimento). Se il pool della lingua di un articolo ha meno di
-    `min_per_class` esempi Sì o No, quel pool non è abbastanza affidabile: si ricade sul
-    pool di `fallback_lang` (di norma l'italiano, il più numeroso e bilanciato)."""
-    X_new = np.asarray(X_new)
-    langs_new = np.asarray(langs_new)
-    scores = np.zeros(len(X_new))
-    fallback_X, fallback_y = pools[fallback_lang]
-    for lang in set(langs_new):
-        idx = np.where(langs_new == lang)[0]
-        Xp, yp = pools.get(lang, (None, None))
-        usable = Xp is not None and (yp == 1).sum() >= min_per_class and (yp == 0).sum() >= min_per_class
-        if not usable:
-            Xp, yp = fallback_X, fallback_y
-        scores[idx] = score_similarity(X_new[idx], Xp, yp, k=k)
-    return scores
 
 
 def find_similar_clusters(X, threshold=CLUSTER_SIM_THRESHOLD, return_similarity=False):
