@@ -29,7 +29,7 @@ sys.path.insert(0, str(ROOT / "ocx_relevance"))
 from common import (log, embed_texts_cached, fetch_fulltext, format_date, parse_date, detect_lang,
                     canonicalize_url, load_tracking_params, dedup_by_content_hash, content_hash,
                     upsert_articles_store, llm_client, downgrade_colliding_fulltext, truncate_obfuscated_text,
-                    load_obfuscation_threshold)
+                    load_obfuscation_threshold, load_known_bad_domains, downgrade_known_bad_domains)
 from ranker import score_similarity, find_similar_clusters, CLUSTER_SIM_THRESHOLD
 sys.path.insert(0, str(ROOT / "corpus"))
 import tag_articles
@@ -108,6 +108,13 @@ def main():
         return a
     with ThreadPoolExecutor(max_workers=16) as ex:
         arts = list(ex.map(f, arts))
+
+    bad_domains = load_known_bad_domains()
+    known_bad_counts = downgrade_known_bad_domains(arts, bad_domains)
+    if known_bad_counts:
+        dettaglio = ", ".join(f"{k}: {v}" for k, v in sorted(known_bad_counts.items(), key=lambda kv: -kv[1]))
+        log(f"     dominio con estrazione nota come difettosa (vedi config/known_bad_domains.json): "
+            f"{sum(known_bad_counts.values())} declassati a fallback  ({dettaglio})")
 
     collision_counts = downgrade_colliding_fulltext(arts)
     if collision_counts:

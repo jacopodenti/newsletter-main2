@@ -1,0 +1,29 @@
+{
+  "_nota": "Domini con estrazione fetch_fulltext nota come difettosa, verificati leggendo il testo in cache e/o la pagina reale (non per analogia). Un rilevatore generico per questo problema e' stato tentato due volte e ha fallito entrambe le volte (audit 24-25/08): 5 misure sintattiche di superficie (frazione di maiuscole consecutive, media parole per paragrafo, frazione di paragrafi corti, coerenza lessicale tra paragrafi) e la coerenza interna via embedding (prima meta' vs seconda meta' dello stesso testo) si sovrappongono troppo con articoli genuinamente corti per una soglia affidabile - il problema e' semantico (contenuto topicamente scollegato, es. un elenco di titoli di articoli diversi), non sintattico. Elenco esplicito invece di una regola: quando downgrade_colliding_fulltext o truncate_obfuscated_text (i due controlli automatici, che restano attivi) intercettano un caso nuovo su un dominio non ancora qui, va aggiunto qui dopo verifica manuale.",
+  "domini": {
+    "forbes.it": {
+      "problema": "riquadro 'Trending' (elenco di titoli di articoli correlati non legati tra loro) al posto del corpo dell'articolo",
+      "verificato": "2026-08-25"
+    },
+    "theregister.com": {
+      "problema": "widget 'Most Popular' al posto del corpo dell'articolo",
+      "verificato": "2026-08-24"
+    },
+    "sifted.eu": {
+      "problema": "testo offuscato con font custom anti-scraping (sito a pagamento) oltre il primo paragrafo - gestito da truncate_obfuscated_text (tiene il primo paragrafo come 'partial' quando possibile), non declassato in blocco",
+      "verificato": "2026-08-24"
+    },
+    "bebeez.it": {
+      "problema": "infobox commerciale 'cerco soci/investitori' al posto del corpo dell'articolo, su un sottoinsieme di pagine",
+      "verificato": "2026-08-24"
+    },
+    "cybersecitalia.it": {
+      "problema": "banner cookie al posto del corpo dell'articolo, su un sottoinsieme di pagine",
+      "verificato": "2026-08-24"
+    },
+    "ft.com": {
+      "problema": "messaggio di paywall/abbonamento al posto del corpo dell'articolo",
+      "verificato": "2026-08-24"
+    }
+  }
+}

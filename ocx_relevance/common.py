@@ -41,6 +41,7 @@ XLSX_EDITORIAL = ROOT / "OCX26_Newsletter.xlsx"      # articoli scelti per le ne
 OSSERVATORI = ROOT / "config" / "osservatori.json"
 TRACKING_PARAMS_PATH = ROOT / "corpus" / "tracking_params.yaml"  # config dedup URL, vedi canonicalize_url
 TEXT_QUALITY_CONFIG_PATH = ROOT / "config" / "text_quality.json"  # soglia testo offuscato, vedi truncate_obfuscated_text
+KNOWN_BAD_DOMAINS_CONFIG_PATH = ROOT / "config" / "known_bad_domains.json"  # vedi downgrade_known_bad_domains
 
 STORE_DIR = ROOT / "store"; STORE_DIR.mkdir(exist_ok=True)
 ARTICLES_STORE_PATH = STORE_DIR / "articles.jsonl"
@@ -285,6 +286,36 @@ def upsert_articles_store(records: list[dict]) -> dict:
     os.replace(tmp_path, ARTICLES_STORE_PATH)
 
     return {"nuove": n_new, "aggiornate": n_updated, "potate": n_pruned, "totale_dopo": len(kept)}
+
+
+def load_known_bad_domains() -> dict:
+    """Domini con estrazione fetch_fulltext nota come difettosa (config/known_bad_domains.json)
+    — vedi audit 24-25/08. Elenco esplicito invece di una regola generica: un rilevatore
+    sintattico per questo tipo di problema (elenco di titoli scollegati al posto
+    dell'articolo) è stato tentato due volte e ha sempre fallito su dati reali, perché il
+    problema è semantico, non sintattico — vedi la nota nel file di config."""
+    return json.load(open(KNOWN_BAD_DOMAINS_CONFIG_PATH, encoding="utf-8"))["domini"]
+
+
+def downgrade_known_bad_domains(articles: list[dict], bad_domains: dict) -> dict:
+    """Declassa a text_source='fallback' (summary RSS) il testo degli articoli il cui link
+    appartiene a un dominio in `bad_domains` — SALVO sifted.eu, lasciato a
+    truncate_obfuscated_text(), che su quel dominio sa già salvare il primo paragrafo pulito
+    come 'partial' invece di buttare via tutto (vedi audit 24/08). Va chiamata PRIMA di
+    downgrade_colliding_fulltext/truncate_obfuscated_text: quei due controlli restano attivi
+    su TUTTI gli altri articoli per intercettare casi nuovi da aggiungere all'elenco, ma non
+    hanno più nulla da fare sugli articoli già declassati qui. Muta gli articoli in place.
+    Ritorna {testata: n_declassati}."""
+    counts = Counter()
+    for a in articles:
+        if a.get("text_source") != "full" or not a.get("full_text"):
+            continue
+        dom = urlsplit(a.get("link") or "").netloc.lower().removeprefix("www.")
+        if dom not in bad_domains or dom == "sifted.eu":
+            continue
+        a["full_text"], a["text_source"] = a.get("summary", ""), "fallback"
+        counts[a.get("fonte", "")] += 1
+    return dict(counts)
 
 
 TEXT_COLLISION_SIM_THRESHOLD = 0.6  # calibrato su casi reali (audit 24/08): The Register,
