@@ -28,7 +28,7 @@ ROOT = HERE.parent
 sys.path.insert(0, str(ROOT / "ocx_relevance"))
 from common import (log, embed_texts_cached, fetch_fulltext, format_date, parse_date, detect_lang,
                     canonicalize_url, load_tracking_params, dedup_by_content_hash, content_hash,
-                    upsert_articles_store, llm_client)
+                    upsert_articles_store, llm_client, downgrade_colliding_fulltext)
 from ranker import build_lang_pools, score_similarity_multilang, find_similar_clusters, CLUSTER_SIM_THRESHOLD
 sys.path.insert(0, str(ROOT / "corpus"))
 import tag_articles
@@ -108,6 +108,13 @@ def main():
         return a
     with ThreadPoolExecutor(max_workers=16) as ex:
         arts = list(ex.map(f, arts))
+
+    collision_counts = downgrade_colliding_fulltext(arts)
+    if collision_counts:
+        dettaglio = ", ".join(f"{k}: {v}" for k, v in sorted(collision_counts.items(), key=lambda kv: -kv[1]))
+        log(f"     collisione testo (stessa testata, testo identico/quasi — vedi audit 24/08): "
+            f"{sum(collision_counts.values())} declassati a fallback  ({dettaglio})")
+
     for a in arts:
         cache[canonicalize_url(a["link"], tracking_params)] = {"text": a["full_text"], "source": a["text_source"]}
     json.dump(cache, open(cache_path, "w", encoding="utf-8"), ensure_ascii=False)

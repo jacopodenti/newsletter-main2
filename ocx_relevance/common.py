@@ -7,6 +7,7 @@ import re
 import html
 import time
 import json
+import difflib
 import hashlib
 import threading
 from collections import Counter
@@ -283,6 +284,50 @@ def upsert_articles_store(records: list[dict]) -> dict:
     os.replace(tmp_path, ARTICLES_STORE_PATH)
 
     return {"nuove": n_new, "aggiornate": n_updated, "potate": n_pruned, "totale_dopo": len(kept)}
+
+
+TEXT_COLLISION_SIM_THRESHOLD = 0.6  # calibrato su casi reali (audit 24/08): The Register,
+# BeBeez e CyberSecItalia (widget/banner catturato al posto dell'articolo) danno ratio 1.0
+# tra articoli diversi della stessa testata; il paywall di ft.com tra 0.34 e 0.89 a seconda
+# della coppia; articoli genuinamente diversi della stessa testata restano sotto 0.10 (unica
+# eccezione osservata, corretta da includere: due pagine-episodio BBC iPlayer a 0.96,
+# contenuto quasi tutto template). Confronto su testo intero normalizzato, non un prefisso:
+# un prefisso condiviso ma coda diversa (es. il disclaimer "why trust ZDNET" davanti a un
+# contenuto reale su zdnet.com) resta sotto soglia e NON viene declassato.
+
+
+def downgrade_colliding_fulltext(articles: list[dict]) -> dict:
+    """Rileva, PRIMA dell'embedding, articoli della stessa testata ('fonte') con
+    text_source == 'full' e testo identico o quasi: segno che l'estrattore ha catturato lo
+    stesso elemento di pagina (sidebar, paywall, banner cookie...) invece del corpo
+    dell'articolo — vedi audit 24/08, cluster anomalo di 47 articoli The Register spiegato
+    così e non da una rubrica ricorrente. Non serve sapere quale widget sia: se due articoli
+    diversi hanno lo stesso testo, almeno uno dei due è sbagliato.
+
+    Entrambi gli articoli di una coppia in collisione vengono declassati a
+    text_source='fallback' (usano il summary RSS: corto ma corretto — meglio poco testo
+    giusto che tanto testo sbagliato). Muta gli articoli in place. Ritorna
+    {testata: n_declassati}, per il log del chiamante."""
+    by_testata = {}
+    for i, a in enumerate(articles):
+        if a.get("text_source") == "full" and a.get("full_text"):
+            by_testata.setdefault(a.get("fonte", ""), []).append(i)
+
+    colliding = set()
+    for idxs in by_testata.values():
+        normed = {i: normalize_text(articles[i]["full_text"]) for i in idxs}
+        for pos, i in enumerate(idxs):
+            for j in idxs[pos + 1:]:
+                if difflib.SequenceMatcher(None, normed[i], normed[j]).ratio() >= TEXT_COLLISION_SIM_THRESHOLD:
+                    colliding.add(i)
+                    colliding.add(j)
+
+    counts = Counter()
+    for i in colliding:
+        a = articles[i]
+        a["full_text"], a["text_source"] = a.get("summary", ""), "fallback"
+        counts[a.get("fonte", "")] += 1
+    return dict(counts)
 
 
 def fetch_fulltext(url: str, fallback: str = "") -> tuple[str, str]:
