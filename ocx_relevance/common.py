@@ -40,6 +40,7 @@ XLSX_LABEL = ROOT / "LABEL-Newsletter.xlsx"          # foglio Dati (corpus) + Ra
 XLSX_EDITORIAL = ROOT / "OCX26_Newsletter.xlsx"      # articoli scelti per le newsletter
 OSSERVATORI = ROOT / "config" / "osservatori.json"
 TRACKING_PARAMS_PATH = ROOT / "corpus" / "tracking_params.yaml"  # config dedup URL, vedi canonicalize_url
+TEXT_QUALITY_CONFIG_PATH = ROOT / "config" / "text_quality.json"  # soglia testo offuscato, vedi truncate_obfuscated_text
 
 STORE_DIR = ROOT / "store"; STORE_DIR.mkdir(exist_ok=True)
 ARTICLES_STORE_PATH = STORE_DIR / "articles.jsonl"
@@ -328,6 +329,96 @@ def downgrade_colliding_fulltext(articles: list[dict]) -> dict:
         a["full_text"], a["text_source"] = a.get("summary", ""), "fallback"
         counts[a.get("fonte", "")] += 1
     return dict(counts)
+
+
+def load_obfuscation_threshold() -> float:
+    """Soglia di 'suspicious_frac' oltre la quale il testo è trattato come offuscato — in
+    config (config/text_quality.json), non hardcoded: vedi lì la nota di calibrazione."""
+    return json.load(open(TEXT_QUALITY_CONFIG_PATH, encoding="utf-8"))["soglia_testo_offuscato"]
+
+
+def _is_suspicious_token(w: str) -> bool:
+    """Un 'token' con un pattern impossibile in italiano e in inglese: 'q' non seguita da
+    'u', 5 o più consonanti di fila, stessa lettera ripetuta 3 o più volte. Language-agnostic
+    apposta (il corpus mischia IT/EN e un dizionario di riferimento non è detto sia disponibile
+    in ogni ambiente): non serve sapere la lingua per riconoscere che una sequenza di lettere
+    non è pronunciabile in nessuna delle due."""
+    wl = w.lower()
+    if len(wl) < 3:
+        return False
+    if "q" in wl and "qu" not in wl:
+        return True
+    if re.search(r"[bcdfghjklmnpqrstvwxyz]{5,}", wl):
+        return True
+    if re.search(r"(.)\1\1", wl):
+        return True
+    return False
+
+
+def _suspicious_frac(text: str, min_tokens: int = 20):
+    """Frazione di token 'sospetti' su un testo. None se il testo è troppo corto (< min_tokens)
+    per una stima affidabile — chi chiama deve trattare None come 'non giudicabile', non come 0."""
+    tokens = [w for w in re.findall(r"[a-zA-Z']+", text or "") if len(w) >= 2]
+    if len(tokens) < min_tokens:
+        return None
+    return sum(1 for w in tokens if _is_suspicious_token(w)) / len(tokens)
+
+
+def _find_obfuscation_cut(paras: list[str], threshold: float) -> int:
+    """Primo indice i (>=1, si assume il paragrafo 0 pulito) tale che i paragrafi da i in poi
+    sono almeno all'80% sopra soglia — stessa logica di downgrade_colliding_fulltext ma sulla
+    qualità del testo in sé, non sul confronto tra articoli (vedi audit 24/08 su Sifted: ogni
+    articolo degrada in un punto diverso con rumore diverso, quindi il confronto incrociato non
+    lo intercetta — va misurata la coerenza del testo stesso). Un paragrafo troppo corto per
+    essere giudicato (_suspicious_frac -> None) conta come sospetto per prudenza: è già oltre
+    il punto in cui il testo smette di essere affidabile. Ritorna 0 se anche il primo paragrafo
+    è già compromesso (nessun prefisso pulito da salvare)."""
+    n = len(paras)
+    scores = [_suspicious_frac(p, min_tokens=5) for p in paras]
+    for i in range(1, n):
+        tail = scores[i:]
+        bad = sum(1 for s in tail if s is None or s >= threshold)
+        if bad / len(tail) >= 0.8:
+            return i
+    return 0
+
+
+def truncate_obfuscated_text(articles: list[dict], threshold: float) -> dict:
+    """Rileva, PRIMA dell'embedding, testo offuscato con font custom anti-scraping (vedi audit
+    24/08 su sifted.eu: il testo comincia reale e coerente, poi degrada in sequenze di lettere
+    impronunciabili — struttura HTML dei link ancora visibile ma con ogni carattere sostituito,
+    coerente con un rimappaggio di glifi lato font, non un cifrario a chiave fissa). A differenza
+    di downgrade_colliding_fulltext, qui non conta il confronto con altri articoli: conta la
+    qualità del testo stesso (_suspicious_frac).
+
+    Un articolo con l'intero full_text sopra soglia non viene scartato: si taglia al paragrafo
+    dove comincia il degrado (_find_obfuscation_cut) e si tiene solo il prefisso pulito, marcato
+    text_source='partial' — per Sifted è tipicamente il primo paragrafo, comunque più
+    informativo del summary RSS. Se il prefisso pulito è più corto o uguale al summary (non
+    aggiunge segnale), si declassa a 'fallback' invece, sullo stesso summary.
+
+    Muta gli articoli in place. Ritorna {'partial': {testata: n}, 'fallback': {testata: n}}."""
+    result = {"partial": Counter(), "fallback": Counter()}
+    for a in articles:
+        if a.get("text_source") != "full" or not a.get("full_text"):
+            continue
+        text = a["full_text"]
+        frac = _suspicious_frac(text)
+        if frac is None or frac < threshold:
+            continue
+
+        paras = [p for p in text.split("\n") if p.strip()]
+        cut = _find_obfuscation_cut(paras, threshold)
+        clean_text = "\n".join(paras[:cut])
+        summary = a.get("summary") or ""
+        fonte = a.get("fonte", "")
+        if len(clean_text) > len(summary):
+            a["full_text"], a["text_source"] = clean_text, "partial"
+            result["partial"][fonte] += 1
+        else:
+            a["full_text"], a["text_source"] = summary, "fallback"
+            result["fallback"][fonte] += 1
+    return {k: dict(v) for k, v in result.items()}
 
 
 def fetch_fulltext(url: str, fallback: str = "") -> tuple[str, str]:

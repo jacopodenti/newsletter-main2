@@ -51,6 +51,7 @@ def main():
     hf = Font(bold=True, color="FFFFFF")
     hd = PatternFill("solid", fgColor="1F6F3E")
     yellow = PatternFill("solid", fgColor="FFF2CC")
+    orange = PatternFill("solid", fgColor="FFE0B3")
     # Titolo colorato = sospetto duplicato (embedding molto simile a un altro candidato
     # dello stesso run, es. stessa notizia da fonti diverse). ATTENZIONE (audit 22/08): la
     # palette ha solo 8 colori, i cluster reali possono superarli abbondantemente (153 nel run
@@ -65,7 +66,9 @@ def main():
         return PatternFill("solid", fgColor=CLUSTER_COLORS[int(cluster_id) % len(CLUSTER_COLORS)])
 
     ws["A1"] = (f"Ranking OCX (ranker + gate LLM su top-{topn}). Rosa finale: {si}.  "
-                f"Parere ricercatore: da compilare a mano (Si/No).  Testo: giallo = senza testo completo (solo sommario).  "
+                f"Parere ricercatore: da compilare a mano (Si/No).  Testo: giallo = solo sommario RSS, "
+                f"arancione = estratto parziale (il resto dell'articolo era testo offuscato/non affidabile, "
+                f"vedi audit 24/08 — valutato su un frammento, non sull'articolo intero).  "
                 f"Titolo con [cluster N]: sospetto duplicato (stessa notizia da fonti diverse) — il numero identifica il "
                 f"gruppo in modo univoco, il colore è solo un aiuto visivo e si ripete oltre 8 cluster nello stesso run "
                 f"(fidarsi del numero, non del colore, se sono più di 8). Vedi motivo del revisore LLM.")
@@ -82,14 +85,21 @@ def main():
     for i, r in enumerate(ranking):
         row = 3 + i + 1
         title = r["titolo"]
-        full = cache.get(title, {}).get("source") == "full"
+        text_source = cache.get(title, {}).get("source")
 
         ws.cell(row=row, column=1, value=int(r["rank"]))
         ws.cell(row=row, column=2, value=float(r["score_ranker"]))
         ws.cell(row=row, column=3, value=r["pertinenza_llm"])
         # colonna 4 "Parere ricercatore" lasciata vuota apposta: da compilare a mano (dropdown Si/No)
-        c5 = ws.cell(row=row, column=5, value="completo" if full else "solo sommario")
-        if not full:
+        # text_source: 'full' = completo, 'partial' = estratto parziale (testo offuscato tagliato
+        # al punto di degrado, vedi audit 24/08), tutto il resto = solo il summary RSS.
+        if text_source == "full":
+            c5 = ws.cell(row=row, column=5, value="completo")
+        elif text_source == "partial":
+            c5 = ws.cell(row=row, column=5, value="estratto parziale")
+            c5.fill = orange
+        else:
+            c5 = ws.cell(row=row, column=5, value="solo sommario")
             c5.fill = yellow
         cid = r.get("cluster_id")
         c6 = ws.cell(row=row, column=6, value=f"{title}  [cluster {cid}]" if cid else title)

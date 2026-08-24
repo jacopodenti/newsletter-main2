@@ -1,0 +1,4 @@
+{
+  "_nota_soglia_offuscamento": "Soglia calibrata (audit 24/08) sulla distribuzione reale di 'suspicious_frac' (frazione di parole con pattern impossibili in italiano/inglese: 'q' non seguita da 'u', 5+ consonanti di fila, stessa lettera ripetuta 3+ volte) misurata su 1184 articoli con testo pieno, post-pulizia della cache. Distribuzione con un salto netto, non una rampa graduale: 98° percentile 0,024, poi zero articoli osservati tra 0,05 e 0,20, poi 99° percentile 0,298. 0,10 sta comodamente nello spazio vuoto — separa gli stessi 14 articoli (tutti Sifted, testo offuscato con font custom anti-scraping) trovati indipendentemente con un metodo diverso (transizione per paragrafo su dizionario inglese), zero falsi positivi sugli altri 66 domini controllati.",
+  "soglia_testo_offuscato": 0.10
+}

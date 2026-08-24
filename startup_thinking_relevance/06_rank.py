@@ -28,7 +28,8 @@ ROOT = HERE.parent
 sys.path.insert(0, str(ROOT / "ocx_relevance"))
 from common import (log, embed_texts_cached, fetch_fulltext, format_date, parse_date, detect_lang,
                     canonicalize_url, load_tracking_params, dedup_by_content_hash, content_hash,
-                    upsert_articles_store, llm_client, downgrade_colliding_fulltext)
+                    upsert_articles_store, llm_client, downgrade_colliding_fulltext, truncate_obfuscated_text,
+                    load_obfuscation_threshold)
 from ranker import build_lang_pools, score_similarity_multilang, find_similar_clusters, CLUSTER_SIM_THRESHOLD
 sys.path.insert(0, str(ROOT / "corpus"))
 import tag_articles
@@ -113,6 +114,17 @@ def main():
         dettaglio = ", ".join(f"{k}: {v}" for k, v in sorted(collision_counts.items(), key=lambda kv: -kv[1]))
         log(f"     collisione testo (stessa testata, testo identico/quasi — vedi audit 24/08): "
             f"{sum(collision_counts.values())} declassati a fallback  ({dettaglio})")
+
+    obfuscation_threshold = load_obfuscation_threshold()
+    obfuscation_counts = truncate_obfuscated_text(arts, obfuscation_threshold)
+    n_partial = sum(obfuscation_counts["partial"].values())
+    n_obf_fallback = sum(obfuscation_counts["fallback"].values())
+    if n_partial or n_obf_fallback:
+        per_testata = Counter(obfuscation_counts["partial"])
+        per_testata.update(obfuscation_counts["fallback"])
+        dettaglio = ", ".join(f"{k}: {v}" for k, v in sorted(per_testata.items(), key=lambda kv: -kv[1]))
+        log(f"     testo offuscato (soglia {obfuscation_threshold}, vedi audit 24/08): "
+            f"{n_partial} tagliati a estratto parziale, {n_obf_fallback} declassati a fallback  ({dettaglio})")
 
     for a in arts:
         cache[canonicalize_url(a["link"], tracking_params)] = {"text": a["full_text"], "source": a["text_source"]}
