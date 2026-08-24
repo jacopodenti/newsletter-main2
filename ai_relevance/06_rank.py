@@ -81,7 +81,7 @@ def main():
     log(f"  articoli in ingresso: {len(arts)}")
 
     # 1) testo intero — con CACHE su disco
-    cache_path = MODELS / "corpus_fulltext_cache.json"
+    cache_path = MODELS / "corpus_fulltext_cache.migrated.json"
     cache = json.load(open(cache_path, encoding="utf-8")) if cache_path.exists() else {}
     log(f"  1) testo intero — {len(cache)} già in cache, scarico solo i mancanti...")
 
@@ -89,10 +89,13 @@ def main():
     # chiave di identità affidabile (audit 13/08: 4 casi reali di stesso titolo + stessa
     # testata ma articoli diversi, es. rubriche ricorrenti con episodi diversi: con la
     # cache a titolo uno di questi riceveva silenziosamente il testo dell'altro).
-    # MIGRAZIONE: le cache esistenti sono ancora chiavizzate per titolo — al primo run
-    # dopo questa modifica nessuna voce fa match, quindi si riscarica il testo intero di
-    # ogni articolo una volta sola (costo di rete, non di token: fetch_fulltext non
-    # chiama nessuna API a pagamento).
+    # File "*.migrated.json" (audit 22/08): il file "corpus_fulltext_cache.json" non
+    # migrato restava puntato dal codice mentre la versione con le chiavi già corrette
+    # (canonicalizzate) stava inutilizzata a fianco — risultato misurato sul run del
+    # 21/08: 0 hit su 1378 articoli, tutto riscaricato ogni volta (costo di rete, non
+    # di token: fetch_fulltext non chiama nessuna API a pagamento, ma restava comunque
+    # uno spreco). Verificato offline sul corpus corrente: la cache migrata coincide
+    # già con >97% degli URL canonici in ingresso.
     tracking_params = load_tracking_params()
 
     def f(a):
