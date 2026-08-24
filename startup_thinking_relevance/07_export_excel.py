@@ -46,7 +46,11 @@ def main():
     hd = PatternFill("solid", fgColor="1F6F3E")
     yellow = PatternFill("solid", fgColor="FFF2CC")
     # Titolo colorato = sospetto duplicato (embedding molto simile a un altro candidato
-    # dello stesso run, es. stessa notizia da fonti diverse): stesso colore = stesso cluster.
+    # dello stesso run, es. stessa notizia da fonti diverse). ATTENZIONE (audit 22/08): la
+    # palette ha solo 8 colori, i cluster reali possono superarli abbondantemente (153 nel run
+    # del 21/08) — dal nono cluster in poi il colore si ripete su gruppi scollegati. Il colore
+    # resta solo un aiuto visivo per un'occhiata rapida; il numero di cluster scritto accanto al
+    # titolo (sempre univoco) è l'informazione affidabile, non il colore.
     CLUSTER_COLORS = ["FFD9D9", "D9E8FF", "D9FFE0", "F0D9FF", "D9FFF7", "FFE0F0", "E8FFD9", "E0E0FF"]
 
     def cluster_fill(cluster_id):
@@ -55,10 +59,12 @@ def main():
         return PatternFill("solid", fgColor=CLUSTER_COLORS[int(cluster_id) % len(CLUSTER_COLORS)])
 
     # 3) intestazione + una riga per articolo (giallo = solo sommario, colore = sospetto
-    # duplicato — stesso colore = stesso cluster)
+    # duplicato — numero cluster = informazione affidabile, colore = solo aiuto visivo)
     ws["A1"] = (f"Ranking Startup Thinking (ranker + gate LLM su top-{topn}). Rosa finale: {si}.  "
                 f"Parere ricercatore: da compilare a mano (Si/No).  Testo: giallo = senza testo completo (solo sommario).  "
-                f"Titolo colorato: sospetto duplicato (stessa notizia da fonti diverse) — vedi motivo del revisore LLM.")
+                f"Titolo con [cluster N]: sospetto duplicato (stessa notizia da fonti diverse) — il numero identifica il "
+                f"gruppo in modo univoco, il colore è solo un aiuto visivo e si ripete oltre 8 cluster nello stesso run "
+                f"(fidarsi del numero, non del colore, se sono più di 8). Vedi motivo del revisore LLM.")
     ws["A1"].font = Font(bold=True, size=12)
 
     heads = ["Rank", "Score ranker", "Pertinenza LLM", "Parere ricercatore", "Testo", "Titolo", "Fonte", "Data", "Link", "Parere revisore LLM", "Confidence LLM"]
@@ -79,8 +85,9 @@ def main():
         c5 = ws.cell(row=row, column=5, value="completo" if full else "solo sommario")
         if not full:
             c5.fill = yellow
-        c6 = ws.cell(row=row, column=6, value=title)
-        cf = cluster_fill(r.get("cluster_id"))
+        cid = r.get("cluster_id")
+        c6 = ws.cell(row=row, column=6, value=f"{title}  [cluster {cid}]" if cid else title)
+        cf = cluster_fill(cid)
         if cf:
             c6.fill = cf
         ws.cell(row=row, column=7, value=r["fonte"])
