@@ -293,25 +293,42 @@ def load_known_bad_domains() -> dict:
     — vedi audit 24-25/08. Elenco esplicito invece di una regola generica: un rilevatore
     sintattico per questo tipo di problema (elenco di titoli scollegati al posto
     dell'articolo) è stato tentato due volte e ha sempre fallito su dati reali, perché il
-    problema è semantico, non sintattico — vedi la nota nel file di config."""
+    problema è semantico, non sintattico — vedi la nota nel file di config.
+
+    Ogni voce ha un campo 'estensione': 'sempre' (tutte le pagine compromesse, o gestito da
+    un controllo dedicato come sifted.eu — downgrade_known_bad_domains agisce qui) o
+    'parziale' (solo un sottoinsieme di pagine, il declassamento incondizionato costerebbe
+    più di quanto valga — lasciato al controllo per collisione, vedi
+    downgrade_known_bad_domains)."""
     return json.load(open(KNOWN_BAD_DOMAINS_CONFIG_PATH, encoding="utf-8"))["domini"]
 
 
 def downgrade_known_bad_domains(articles: list[dict], bad_domains: dict) -> dict:
     """Declassa a text_source='fallback' (summary RSS) il testo degli articoli il cui link
-    appartiene a un dominio in `bad_domains` — SALVO sifted.eu, lasciato a
-    truncate_obfuscated_text(), che su quel dominio sa già salvare il primo paragrafo pulito
-    come 'partial' invece di buttare via tutto (vedi audit 24/08). Va chiamata PRIMA di
-    downgrade_colliding_fulltext/truncate_obfuscated_text: quei due controlli restano attivi
-    su TUTTI gli altri articoli per intercettare casi nuovi da aggiungere all'elenco, ma non
-    hanno più nulla da fare sugli articoli già declassati qui. Muta gli articoli in place.
-    Ritorna {testata: n_declassati}."""
+    appartiene a un dominio con estensione 'sempre' in `bad_domains` (config/known_bad_domains.json)
+    — SALVO sifted.eu, lasciato a truncate_obfuscated_text(), che su quel dominio sa già
+    salvare il primo paragrafo pulito come 'partial' invece di buttare via tutto.
+
+    I domini con estensione 'parziale' (bebeez.it, cybersecitalia.it, forbes.it — solo un
+    sottoinsieme di pagine compromesso, non tutte) NON vengono toccati qui: il declassamento
+    incondizionato per l'intero dominio costava più di quanto valesse — un articolo vero di
+    cybersecitalia.it era finito rank 1 su tutta AI prima di essere declassato per il solo
+    fatto di venire da quel dominio (audit 25/08). Restano scoperti dal controllo per
+    collisione (downgrade_colliding_fulltext), che li aveva trovati la prima volta e continua
+    a intercettare casi nuovi, con richiamo imperfetto ma zero falsi positivi su articoli buoni.
+
+    Va chiamata PRIMA di downgrade_colliding_fulltext/truncate_obfuscated_text: quei due
+    controlli restano attivi su TUTTI gli altri articoli (inclusi quelli sui domini
+    'parziale') per intercettare casi nuovi da aggiungere all'elenco, ma non hanno più nulla
+    da fare sugli articoli già declassati qui. Muta gli articoli in place. Ritorna
+    {testata: n_declassati}."""
     counts = Counter()
     for a in articles:
         if a.get("text_source") != "full" or not a.get("full_text"):
             continue
         dom = urlsplit(a.get("link") or "").netloc.lower().removeprefix("www.")
-        if dom not in bad_domains or dom == "sifted.eu":
+        info = bad_domains.get(dom)
+        if not info or info.get("estensione") != "sempre" or dom == "sifted.eu":
             continue
         a["full_text"], a["text_source"] = a.get("summary", ""), "fallback"
         counts[a.get("fonte", "")] += 1
