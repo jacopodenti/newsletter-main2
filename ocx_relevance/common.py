@@ -220,8 +220,11 @@ def load_articles_store() -> dict:
 # a parte con regole diverse). Un valore None in input NON sovrascrive un valore già
 # presente nello store (serve al backfill del commit 3, che non conosce content_hash/
 # text_source/last_rank per le righe storiche e non deve cancellarli se già noti da un
-# run reale).
-_ARTICLE_FIELDS = ("url_canonico", "osservatorio", "content_hash", "published_date", "text_source", "last_rank")
+# run reale — la stessa regola serve a content_type/target_audience, che 06_rank.py
+# conosce solo per i candidati passati dal gate: senza questa regola un articolo già
+# taggato in un run precedente perderebbe il tag non appena non rientra più nel gate).
+_ARTICLE_FIELDS = ("url_canonico", "osservatorio", "content_hash", "published_date", "text_source", "last_rank",
+                    "content_type", "target_audience")
 
 
 def upsert_articles_store(records: list[dict]) -> dict:

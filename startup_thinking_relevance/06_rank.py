@@ -277,6 +277,8 @@ def main():
             "published_date": a.get("published_date", ""),
             "text_source": a.get("text_source"),
             "last_rank": rank,
+            "content_type": content_type_map.get(a["title"]),
+            "target_audience": audience_map.get(a["title"]),
         })
     store_stats = upsert_articles_store(records)
     log(f"  store articoli: {store_stats['nuove']} nuove, {store_stats['aggiornate']} aggiornate, "
