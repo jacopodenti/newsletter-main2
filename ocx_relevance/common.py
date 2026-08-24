@@ -270,9 +270,14 @@ def upsert_articles_store(records: list[dict]) -> dict:
             continue
         kept[key] = r
 
-    with open(ARTICLES_STORE_PATH, "w", encoding="utf-8") as f:
+    # Scrittura atomica: su file temporaneo poi rename (os.replace è atomico sullo
+    # stesso filesystem) — un'interruzione a metà lasciava altrimenti articles.jsonl
+    # troncato, con le righe non ricostruibili (audit 22/08).
+    tmp_path = ARTICLES_STORE_PATH.with_name(ARTICLES_STORE_PATH.name + f".tmp{os.getpid()}")
+    with open(tmp_path, "w", encoding="utf-8") as f:
         for r in kept.values():
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
+    os.replace(tmp_path, ARTICLES_STORE_PATH)
 
     return {"nuove": n_new, "aggiornate": n_updated, "potate": n_pruned, "totale_dopo": len(kept)}
 
@@ -433,10 +438,16 @@ def embed_texts_cached(articles: list[dict], tracking_params: set[str], workers:
     X_kept = X[keep_idx] if keep_idx else np.zeros((0, EMBED_DIM), dtype=np.float32)
     last_seen_kept = [last_seen[i] for i in keep_idx]
 
-    np.savez_compressed(EMBEDDINGS_STORE_PATH,
+    # Scrittura atomica: su file temporaneo (nome che finisce comunque in .npz, così
+    # numpy non lo rinomina da solo) poi rename — un'interruzione a metà lasciava
+    # altrimenti embeddings.npz troncato/corrotto, con embedding già pagati da
+    # riscaricare (audit 22/08).
+    tmp_path = EMBEDDINGS_STORE_PATH.with_name(f"{EMBEDDINGS_STORE_PATH.stem}.tmp{os.getpid()}.npz")
+    np.savez_compressed(tmp_path,
                          urls=np.array(urls_kept),  # dtype stringa nativo (<U...), niente pickle
                          X=X_kept.astype(np.float32),
                          last_seen=np.array(last_seen_kept))
+    os.replace(tmp_path, EMBEDDINGS_STORE_PATH)
 
     return X_out, tok, {"n_cache_hit": len(articles) - len(missing_pos), "n_nuovi": len(missing_pos), "potati": n_pruned}
 
