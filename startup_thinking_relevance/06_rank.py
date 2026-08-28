@@ -230,7 +230,7 @@ def main():
     topn = [arts[i] for i in order[:args.topn]]
     topn, gtok = gate.run_gate(topn)
     llm_map = {a["title"]: a.get("llm") for a in topn}
-    confidence_map = {a["title"]: a.get("llm_confidence") for a in topn}
+    voto_map = {a["title"]: a.get("llm_voto") for a in topn}
     motivo_map = {a["title"]: a.get("llm_motivo", "") for a in topn}
     cluster_map = {a["title"]: a.get("cluster_id") for a in arts}
     si = sum(1 for a in topn if a.get("llm") == 1)
@@ -273,16 +273,16 @@ def main():
     out_path = DATA / "ranking.csv"
     with open(out_path, "w", newline="", encoding="utf-8") as fcsv:
         w = csv.writer(fcsv)
-        w.writerow(["rank", "score_ranker", "pertinenza_llm", "confidence_llm", "motivo_llm", "content_type",
+        w.writerow(["rank", "score_ranker", "pertinenza_llm", "voto_llm", "motivo_llm", "content_type",
                     "target_audience", "titolo", "fonte", "data", "link", "cluster_id"])
         for rank, i in enumerate(order, 1):
             a = arts[i]
             pl = llm_map.get(a["title"])
-            conf = confidence_map.get(a["title"])
+            voto = voto_map.get(a["title"])
             cid = cluster_map.get(a["title"])
             w.writerow([rank, round(float(scores[i]), 4),
                         ("Si" if pl == 1 else "No") if pl is not None else "",
-                        round(float(conf), 2) if conf is not None else "",
+                        int(voto) if voto is not None else "",
                         motivo_map.get(a["title"], ""),
                         content_type_map.get(a["title"], ""),
                         audience_map.get(a["title"], ""),

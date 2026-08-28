@@ -70,7 +70,7 @@ def main():
                 f"(fidarsi del numero, non del colore, se sono più di 8). Vedi motivo del revisore LLM.")
     ws["A1"].font = Font(bold=True, size=12)
 
-    heads = ["Rank", "Score ranker", "Pertinenza LLM", "Parere ricercatore", "Testo", "Titolo", "Fonte", "Data", "Link", "Parere revisore LLM", "Confidence LLM"]
+    heads = ["Rank", "Score ranker", "Pertinenza LLM", "Parere ricercatore", "Testo", "Titolo", "Fonte", "Data", "Link", "Parere revisore LLM", "Voto LLM"]
     for c, h in enumerate(heads, 1):
         cell = ws.cell(row=3, column=c, value=h)
         cell.font = hf
@@ -107,8 +107,8 @@ def main():
             c9.hyperlink = r["link"]
             c9.font = Font(color="0563C1", underline="single")
         ws.cell(row=row, column=10, value=r.get("motivo_llm", ""))
-        conf = r.get("confidence_llm", "")
-        ws.cell(row=row, column=11, value=float(conf) if conf not in ("", None) else "")
+        voto = r.get("voto_llm", "")
+        ws.cell(row=row, column=11, value=int(float(voto)) if voto not in ("", None) else "")
 
     # 4) dropdown "Parere ricercatore", formattazione finale e salvataggio
     last_row = 3 + n

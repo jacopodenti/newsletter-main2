@@ -97,7 +97,7 @@ def main():
                 "Righe con la barra grigia: sospetti duplicati accostati al più in alto in classifica del gruppo — vedi motivo del revisore LLM.")
     ws["A1"].font = Font(bold=True, size=12)
 
-    heads = ["Rank", "Score ranker", "Pertinenza LLM", "Parere ricercatore", "Testo", "Titolo", "Fonte", "Data", "Link", "Parere revisore LLM", "Confidence LLM"]
+    heads = ["Rank", "Score ranker", "Pertinenza LLM", "Parere ricercatore", "Testo", "Titolo", "Fonte", "Data", "Link", "Parere revisore LLM", "Voto LLM"]
 
     def write_header(row):
         for c, h in enumerate(heads, 1):
@@ -151,8 +151,8 @@ def main():
                 c9.hyperlink = row["link"]
                 c9.font = Font(color="0563C1", underline="single")
             ws.cell(row=r, column=10, value=row.get("motivo_llm", ""))
-            conf = row.get("confidence_llm", "")
-            ws.cell(row=r, column=11, value=float(conf) if conf not in ("", None) else "")
+            voto = row.get("voto_llm", "")
+            ws.cell(row=r, column=11, value=int(float(voto)) if voto not in ("", None) else "")
             data_rows.append(r)
             r += 1
         return r, data_rows

@@ -43,7 +43,7 @@ DESCRIZIONE OSSERVATORIO:
 COMPITO: dato un articolo, decidi se e PERTINENTE a questo osservatorio.
 {criteria}
 
-Rispondi SOLO con JSON: {{"rilevante": true/false, "confidence": 0.0-1.0, "motivo": "una frase"}}
+Rispondi SOLO con JSON: {{"rilevante": true/false, "voto": 0-100 (quanto lo sceglieresti davvero per la prossima newsletter, non quanto parla del nostro tema), "motivo": "una frase"}}
 
 ARTICOLO:
 Titolo: {title}
@@ -73,6 +73,29 @@ diverso pur sullo stesso tema, ignora questo avviso."""
 # Conseguenza pratica: una differenza sotto ~5 punti di accordo (o kappa equivalente) tra due
 # varianti di prompt NON è interpretabile come un effetto reale senza ripetere la misura più
 # volte — potrebbe essere solo rumore tra sessioni, non l'effetto della modifica.
+#
+# ATTENZIONE — cambio confidence -> voto (25/08): il campo "confidence" è stato sostituito da
+# "voto" 0-100 ("quanto lo sceglieresti davvero per la prossima newsletter"), perché la
+# confidence — anche presa con il segno giusto in base al verdetto — non discriminava tra i
+# "Sì" buoni e i "Sì" sbagliati (media 0,852 vs 0,830, sostanzialmente indistinguibile).
+# Test di non regressione sugli stessi 143 giudizi netti di Filippo (le 6 righe ambigue tipo
+# "notizia citata più volte"/"Interno" escluse, non contate come No), resto del prompt
+# identico byte per byte: accordo 86,0% -> 85,3% (-0,7pt), kappa 0,665 -> 0,620 (-0,044),
+# entrambi dentro la banda di rumore misurata sopra. Ma precisione e recall si muovono più di
+# quanto l'accordo aggregato suggerisca: precisione 68,1% -> 71,1%, recall 86,5% -> 73,0%
+# (-13,5pt). 13/143 articoli cambiano verdetto in entrambe le direzioni (6 Sì persi, 1 Sì
+# recuperato, 5 falsi positivi corretti, 1 nuovo falso positivo) — non c'è una banda di rumore
+# storica per precisione/recall (lo studio dei 3 rerun sopra ha misurato solo accordo e kappa),
+# quindi questo spostamento non è classificabile come rumore o effetto reale con la stessa
+# sicurezza.
+# Verificato che il voto dei 6 Sì persi (media 24,2) è indistinguibile da quello dei 5 falsi
+# positivi corretti (media 22,0) e lontano dal voto dei Sì confermati (media 70,2): il modello
+# non riconosce i 6 persi come buoni e risponde No lo stesso — li valuta coerentemente deboli
+# su entrambi i campi, non c'è un'incoerenza interna al prompt da sfruttare per recuperarli
+# tenendo il sì/no invariato. Il voto separa invece bene DENTRO il gruppo dei Sì (confermati
+# media 70,2 vs smentiti media 65,2) e ordina i candidati meglio del rank del ranker (AUC
+# 0,897 vs 0,805, precision@10 100% vs 70% su 143/143 articoli) — è il segnale su cui si basa
+# l'ordinamento dei candidati a valle del gate, non il criterio di sì/no.
 def run_gate(rows, max_workers=8):
     client = llm_client()
     lock = threading.Lock()
@@ -99,20 +122,20 @@ def run_gate(rows, max_workers=8):
                 log_gate_cost(cost_log_path, run_id, r["title"], resp.usage.input_tokens, resp.usage.output_tokens)
                 return {
                     "llm": 1 if res.get("rilevante") else 0,
-                    "llm_confidence": res.get("confidence"),
+                    "llm_voto": res.get("voto"),
                     "llm_motivo": res.get("motivo", ""),
                 }
             except Exception:
                 if attempt == 4:
-                    return {"llm": None, "llm_confidence": None, "llm_motivo": ""}
+                    return {"llm": None, "llm_voto": None, "llm_motivo": ""}
                 time.sleep(2 ** attempt)
-        return {"llm": None, "llm_confidence": None, "llm_motivo": ""}
+        return {"llm": None, "llm_voto": None, "llm_motivo": ""}
 
     with ThreadPoolExecutor(max_workers=max_workers) as ex:
         preds = list(ex.map(one, rows))
     for r, p in zip(rows, preds):
         r["llm"] = p["llm"]
-        r["llm_confidence"] = p["llm_confidence"]
+        r["llm_voto"] = p["llm_voto"]
         r["llm_motivo"] = p["llm_motivo"]
     return rows, tok
 

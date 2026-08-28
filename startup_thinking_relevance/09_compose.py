@@ -44,7 +44,14 @@ def load_candidates():
             "title": r["titolo"],
             "rank": int(r["rank"]),
             "pertinenza_llm": r["pertinenza_llm"],
-            "gate_confidence": float(r["confidence_llm"]) if r.get("confidence_llm") else None,
+            # select_for_newsletter (common.py) ordina il ripescaggio per gate_confidence
+            # CRESCENTE — per la confidence (ocx/ai) vale "il No meno sicuro prima". Il gate
+            # di Startup Thinking non produce più confidence ma un voto 0-100 dove PIÙ alto
+            # = più rilevante: il "No bocciato per poco" ha voto alto, non basso. Per riusare
+            # lo stesso ordinamento crescente senza toccare la funzione condivisa, si passa
+            # -voto: crescente su -voto equivale a decrescente su voto, cioè i No con voto
+            # più alto (più vicini a un Sì) vengono ripescati per primi, come deve essere.
+            "gate_confidence": -float(r["voto_llm"]) if r.get("voto_llm") not in ("", None) else None,
             "fonte": r["fonte"],
             "content_type": r.get("content_type") or None,
             "target_audience": r.get("target_audience") or None,
