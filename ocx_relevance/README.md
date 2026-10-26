@@ -7,26 +7,30 @@ Stesso schema, stesso codice condiviso (`common.py`, `ranker.py`) e stesso corpu
 `../ai_relevance` e `../startup_thinking_relevance`: le 3 pipeline sono concettualmente
 identiche, cambiano solo le testate/descrizione specifiche dell'osservatorio.
 
-## Come funziona (in 7 step)
+## Come funziona (in 9 step)
 
 ```
 articoli
-  1. testo INTERO scaricato dagli URL (non più il sommario da 25 parole)
-  2. EMBEDDING  text-embedding-3-large (3072 dim)
-  3. RANKER     SOMIGLIANZA agli esempi OCX, per lingua (niente addestramento) → score  [usa gli esempi]
-  4. GATE LLM   gpt-5.4 legge l'articolo e dice si/no di pertinenza                     [NON usa le etichette]
-  5. RANK       pipeline completa sul corpus condiviso (../corpus/corpus_raw.jsonl):
-                embedding + ranker + gate sui primi N -> data/ranking.csv
-  6. EXPORT     scrive il ranking come foglio Excel dentro LABEL-Newsletter.xlsx
-  7. REVISIONE  costruisce un foglio "Da_revisionare" curato per il controllo umano
+  2. DATASET    testo INTERO scaricato dagli URL (non più il sommario da 25 parole)
+  3. EMBEDDING  text-embedding-3-large (3072 dim)
+  4. VALUTA     salva il set di riferimento (reference_set.npz) e misura l'AUC del ranker
+  5. GATE LLM   gpt-5.4 legge l'articolo e dice si/no di pertinenza + un voto/confidence    [NON usa le etichette]
+  6. RANK       pipeline completa sul corpus condiviso (../corpus/corpus_raw.jsonl):
+                embedding + ranker + dedup + gate + tagging content_type/audience sui primi N
+                -> data/ranking.csv
+  7. EXPORT     scrive il ranking come foglio Excel
+  8. REVISIONE  costruisce un foglio "Da_revisionare" curato per il controllo umano
+  9. COMPOSITORE seleziona gli articoli per il numero (quote per testata/gruppo/content_type)
+                -> data/composizione.xlsx
 ```
 
 Il ranker NON addestra nulla: gli esempi OCX SONO il riferimento. Il punteggio di una news =
 `media(coseno con i 3 esempi "Si" più vicini) − media(coseno con i 3 esempi "No" più vicini)`,
-calcolato **dentro la stessa lingua** dell'articolo (pool separati per lingua in `ranker.py`,
-con fallback sul pool italiano se la lingua dell'articolo ha meno di 10 esempi Sì o No —
-altrimenti un pool sbilanciato, es. "0 positivi inglesi", darebbe punteggi inaffidabili).
-Aggiungere un esempio = aggiungere un vettore, subito usabile (scala a 60 osservatori senza ri-addestrare).
+confronto **unico su tutto il reference set** (la separazione per lingua c'era ma è stata
+**rimossa il 24/08**: con solo pochi esempi positivi in alcune lingue ricadeva comunque quasi
+sempre sul pool italiano, e `text-embedding-3-large` è multilingua per costruzione — dettagli
+in `../revisione/documentazione_tecnica.md`). Aggiungere un esempio = aggiungere un vettore,
+subito usabile (scala a più osservatori senza ri-addestrare).
 
 **Divisione dei compiti (perché regge con poche etichette):**
 - Il **ranker** usa le poche etichette solo come *pre-filtro economico* (ordina/restringe).
@@ -62,6 +66,9 @@ venv/bin/python ocx_relevance/07_export_excel.py
 
 # STEP 8 — costruisce il foglio "Da_revisionare" per il controllo umano
 venv/bin/python ocx_relevance/08_build_review_sheet.py
+
+# STEP 9 — compositore: seleziona gli articoli per il numero (vincoli in config/composer_ocx.json)
+venv/bin/python ocx_relevance/09_compose.py
 ```
 
 Il corpus (`../corpus/corpus_raw.jsonl`) è condiviso e va aggiornato a parte, solo ogni tanto:
@@ -79,8 +86,8 @@ Una riga per articolo: `title, link, full_text, text_source, label, origin, id`.
 Ogni esempio traccia l'origine → puoi filtrare/togliere una fonte quando vuoi
 (es. buttare via `set50`).
 
-## Interpretabilità delle performance (step 3)
-Il log dello step 3 spiega **come** si ottiene ogni numero:
+## Interpretabilità delle performance (step 4)
+Il log dello step 4 spiega **come** si ottiene ogni numero:
 - **k-fold stratificato 5×20**: ogni articolo è giudicato solo da un modello che non l'ha mai visto (niente leakage).
 - **AUC**: probabilità che un rilevante prenda punteggio più alto di un non-rilevante (0.5 = caso, 1.0 = perfetto).
 - **precisione@K**: quanti dei primi K sono davvero rilevanti.
@@ -97,7 +104,7 @@ Il log dello step 3 spiega **come** si ottiene ogni numero:
 - LLM: `gpt-5.4`, Azure.
 - Ranker: somiglianza agli esempi (coseno, k=3) — **nessun addestramento** (`ranker.py`).
 
-## Nota
-Le mie modifiche a `../src/embed_classify.py`, `pipeline.py`, `confidence.py` (fatte prima,
-sul percorso `--gate` NON di default) sono ancora lì. Se vuoi, le rimuovo per lasciare la
-produzione esattamente com'era.
+## Dettagli completi
+Per l'algoritmo esatto di ogni stadio (parametri, file:riga, cosa è persistito vs effimero,
+punti fragili), vedi `../revisione/documentazione_tecnica.md`. `../src/` contiene il sistema
+precedente, superato — vedi `../src/README.md` per cosa ne resta effettivamente in uso.

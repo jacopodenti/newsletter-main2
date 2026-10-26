@@ -1,27 +1,44 @@
-README.md
-# Newsletter — Classificazione articoli e ranking interattivo
+# Newsletter — Classificazione e composizione articoli
 
-Pipeline per il fetch di articoli da feed RSS, classificazione automatica via **embedding Azure OpenAI** (osservatori, content type, target audience, macro topics) e generazione di un Excel interattivo per la revisione manuale.
+Pipeline per raccogliere articoli da feed RSS, giudicarne la pertinenza per un Osservatorio
+del Politecnico di Milano, e proporre la selezione per il numero successivo della newsletter.
 
-## Output
+Tre pipeline attive, una per osservatorio — **OCX** (`ocx_relevance/`), **AI**
+(`ai_relevance/`), **Startup Thinking** (`startup_thinking_relevance/`) — concettualmente
+identiche, isolate da un sistema di produzione precedente (`src/` + `streamlit_app/`, vedi
+[`src/README.md`](src/README.md)) che non è più il percorso in uso.
 
-A ogni run vengono prodotti in `output/`:
+**Per capire un singolo stadio nel dettaglio** (algoritmo esatto, parametri, cosa è
+persistito, punti fragili, cosa è cambiato di recente e perché): leggi
+[`revisione/documentazione_tecnica.md`](revisione/documentazione_tecnica.md). Questo README è
+solo la mappa d'insieme.
 
-- `results_YYYYMMDD_HHMMSS.jsonl` — dataset grezzo con tutti i score e le probabilità per ogni articolo
-- `ranking_interattivo.xlsx` — workbook a 4 fogli per esplorare e revisionare i risultati:
-  - **Config** — pesi e moltiplicatori modificabili (lo Score si ricalcola in tempo reale)
-  - **Ranking** — classifica ordinata con dropdown per revisione manuale di Rilevante / Content Type / Target Audience
-  - **Dizionario** — glossario di tutte le variabili usate nei vari fogli
-  - **Dati** — sorgente grezza (nascosta, alimenta le formule del Ranking)
+## Flusso (identico nelle 3 pipeline, in 9 step numerati)
+
+```
+corpus condiviso (corpus/corpus_raw.jsonl, da corpus/fetch_corpus.py)
+  │
+  ├─ 01  candidati negativi probabili, giudicati da un LLM come punto di partenza
+  │      (solo AI/Startup Thinking — OCX riusa etichette editoriali già esistenti)
+  ├─ 02  dataset etichettato (testo intero scaricato dagli URL, fallback al sommario)
+  ├─ 03  embedding del dataset (text-embedding-3-large, Azure)
+  ├─ 04  valutazione del ranker (k-fold ripetuto) + salva il set di riferimento
+  ├─ 05  gate LLM di pertinenza (gpt-5.4) — non usa le etichette, giudica autonomamente
+  ├─ 06  pipeline di produzione sul corpus condiviso:
+  │      embedding → ranker per similarità → deduplicazione → gate LLM → tagging
+  │      (content_type/target_audience) sui primi N candidati → ranking.csv
+  ├─ 07  esporta il ranking in Excel
+  ├─ 08  costruisce il foglio di revisione umana
+  └─ 09  compositore: seleziona gli articoli per il numero (quote per testata/gruppo/
+         content_type) → composizione.xlsx, due fogli (Selezionati/Esclusi)
+```
+
+Il ranker non addestra nulla: ogni candidato prende punteggio dalla similarità coseno con i 3
+esempi "Sì" e "No" più vicini nel set di riferimento (stesso impianto per le 3 pipeline,
+nessuna separazione per lingua — rimossa il 24/08, vedi documentazione tecnica). Il gate LLM è
+una chiamata separata e indipendente che decide senza vedere le etichette.
 
 ## Setup
-
-### Prerequisiti
-
-- Python 3.11+
-- Account Azure OpenAI con deployment `text-embedding-3-small` (o equivalente)
-
-### Installazione
 
 ```bash
 python -m venv venv
@@ -29,99 +46,80 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Variabili d'ambiente
-
-Crea un file `.env` nella root:
+Serve un file `.env` nella root con le credenziali Azure OpenAI:
 
 ```bash
 AZURE_OPENAI_API_KEY=...
 AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
-# opzionali — se l'embedding sta su un endpoint/deployment diverso:
-AZURE_EMBEDDING_ENDPOINT=...
-AZURE_EMBEDDING_DEPLOYMENT=text-embedding-3-small
-AZURE_EMBEDDING_API_VERSION=2024-02-01
-# soglia per la selezione dei macro topic (default 0.35):
-TAXONOMY_MACRO_THRESHOLD=0.35
 ```
 
-## Uso
+**I dati reali non sono in questo repository** (è pubblico — vedi `.gitignore`): corpus
+scaricato, dataset di riferimento, export Excel, store delle selezioni storiche. Vanno
+recuperati da chi gestisce il progetto, non generati da zero (molti richiedono fogli
+editoriali storici non ricostruibili).
 
-### Run completo
+## Uso — una pipeline per volta
 
 ```bash
-python src/pipeline.py
+cd /path/al/repo
+
+# costruisce/aggiorna il corpus condiviso (va fatto ogni tanto, non ad ogni run)
+venv/bin/python corpus/fetch_corpus.py
+
+# dentro ciascuna cartella pipeline, in ordine (esempio: ocx_relevance)
+venv/bin/python ocx_relevance/02_build_dataset.py
+venv/bin/python ocx_relevance/03_embed.py
+venv/bin/python ocx_relevance/04_valuta.py
+venv/bin/python ocx_relevance/06_rank.py --topn 150
+venv/bin/python ocx_relevance/07_export_excel.py
+venv/bin/python ocx_relevance/08_build_review_sheet.py
+venv/bin/python ocx_relevance/09_compose.py
 ```
 
-Esegue: fetch feed → embedding articoli → classificazione → scoring → genera jsonl + Excel interattivo.
+Dettagli, varianti e opzioni per singola pipeline: README dentro ciascuna cartella
+(`ocx_relevance/README.md` e analoghi).
 
-### Opzioni
+## Struttura del repository
+
+```
+corpus/           fetch feed RSS (condiviso dalle 3 pipeline) + tagging content_type/audience
+ocx_relevance/    pipeline Osservatorio OCX
+ai_relevance/     pipeline Osservatorio Artificial Intelligence
+startup_thinking_relevance/   pipeline Osservatorio Startup Thinking
+config/           feed, tassonomie, config del compositore, gruppi editoriali, modelli LLM
+store/            (ignorato da git) stato persistente condiviso: articoli visti, selezioni
+                  storiche, embedding cumulativi
+revisione/        documentazione tecnica, audit, fogli di revisione umana (xlsx ignorati)
+legacy/           script isolati non verificati come ancora in uso — vedi legacy/README.md
+src/              sistema di produzione precedente, in gran parte superato — vedi src/README.md
+streamlit_app/    interfaccia del sistema precedente
+tests/            test automatici sulla logica pura (vedi sotto)
+```
+
+`ocx_relevance/common.py` e `ocx_relevance/ranker.py` sono condivisi dalle 3 pipeline (le
+altre due li raggiungono con `sys.path`, non li duplicano). `corpus/tag_articles.py` idem per
+la classificazione content_type/target_audience.
+
+## Test
 
 ```bash
-python src/pipeline.py --max-per-feed 5             # limita articoli per feed (default 10)
-python src/pipeline.py --scoring-config path.json   # override config scoring
+venv/bin/pytest tests/
 ```
 
-### Workflow tipico
+Coprono solo la logica deterministica e pura — canonicalizzazione URL, normalizzazione testo,
+rilevamento qualità/offuscamento del testo, punteggio del ranker, clustering per
+deduplicazione, selezione del compositore. **Nessun test chiama un modello LLM o l'API di
+embedding**: costerebbe denaro reale ad ogni run e non sarebbe deterministico. Il
+comportamento del gate/tagging/embedding è verificato con esperimenti ad hoc documentati in
+`revisione/`, non con una suite automatica.
 
-1. Lancia `python src/pipeline.py` (può durare diversi minuti per ~600 articoli, consuma token Azure embeddings).
-2. Apri `output/ranking_interattivo.xlsx`.
-3. Foglio **Config** → seleziona l'osservatorio target in `C2`, ritocca pesi `C5:C7` e moltiplicatori `C12:C26`.
-4. Foglio **Ranking** → la classifica si riordina automaticamente. Per ogni riga:
-   - `Rilevante` (Si/No) — marca l'articolo come effettivamente pertinente
-   - `Content Type` / `Target Audience` — sovrascrivi via dropdown se la predizione è errata
-5. I dati corretti possono poi essere usati come ground truth per ri-tarare i parametri.
+## Modelli usati
 
-## Struttura
+| Uso | Modello | Dove configurato |
+|---|---|---|
+| Imbedding | `text-embedding-3-large` (3072 dim) | `ocx_relevance/common.py` |
+| Gate di pertinenza | `gpt-5.4` | `config/models.json` (`gate_model`) |
+| Tagging content_type/audience | `gpt-5.4-nano` | `config/models.json` (`tagging_model`) |
 
-```
-config/
-  feeds.yaml                       # lista feed RSS
-  osservatori.json                 # definizioni e descrizioni osservatori
-  classification_taxonomy.json     # label e descrizioni di CT, TA, macro topics
-  scoring.json                     # pesi default per il ranking
-cache/
-  observatory_embeddings.pkl       # cache embedding osservatori
-  taxonomy_embeddings.pkl          # cache embedding label tassonomia
-src/
-  pipeline.py                      # entrypoint
-  fetch_feeds.py                   # parser RSS
-  embed_classify.py                # classificazione via embedding Azure
-  scoring.py                       # calcolo score finale
-  export_excel.py                  # generazione workbook a 4 fogli
-  enrich_osservatori.py            # utility scraping descrizioni osservatori
-output/
-  results_*.jsonl                  # dataset grezzi per timestamp
-  ranking_interattivo.xlsx         # workbook revisione
-old/
-  ai/                              # vecchio stack LLM (classify.py + eval)
-  models/                          # vecchio stack ML locale (NLI, sklearn, streamlit review app)
-```
-
-## Modello di classificazione
-
-L'embed pipeline calcola, per ogni articolo:
-
-- `score_obs` — similarità coseno tra l'embedding dell'articolo e quello di ogni osservatorio
-- `score_ct` / `score_ta` — probabilità della classe più vicina nella tassonomia (zero-shot via embedding)
-- `score_macro` — multilabel con soglia configurabile (`TAXONOMY_MACRO_THRESHOLD`)
-
-Lo **Score finale** (foglio Ranking) è:
-
-```
-Score = w_obs * obs_norm + w_ct * (ct_score * ct_mul)_norm + w_ta * (ta_score * ta_mul)_norm
-```
-
-dove `obs_norm`/`ct_norm`/`ta_norm` sono normalizzazioni min-max sull'intero batch e i moltiplicatori per content type / target audience sono ritoccabili in `Config!C12:C26`.
-
-## Cache
-
-Gli embedding di osservatori e tassonomia sono persistiti in `cache/*.pkl` con hash della config: vengono ricalcolati solo se `osservatori.json` o `classification_taxonomy.json` cambiano. Per forzare il ricalcolo, cancella i file in `cache/`.
-
-## Codice archiviato
-
-`old/` contiene approcci precedenti non più usati ma mantenuti come riferimento:
-
-- `old/ai/` — classificazione via prompt a un LLM Azure (`classify.py`), eval di accuracy, confronti LLM vs embed
-- `old/models/` — zero-shot NLI con mDeBERTa (`classify_nli.py`), classificatori sklearn allenati su revisioni umane (`train_classifiers.py`, `retrain.py`), gate hybrid embed+local (`confidence.py`), app Streamlit per review queue e drift monitoring
-
-Questi moduli hanno path interni a `src/` non più validi; per riattivarli serve aggiustare gli import.
+Prezzi e note di affidabilità (solo gpt-5.4 ha una tariffa confermata) in
+`config/models.json`.
