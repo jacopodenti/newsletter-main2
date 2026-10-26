@@ -1,5 +1,5 @@
 """
-STEP 1 — Costruisce il dataset etichettato NUOVO, con TESTO INTERO.
+STEP 2 — Costruisce il dataset etichettato NUOVO, con TESTO INTERO.
 
 Composizione:
   positivi (1): 26 "Si" del set-50 + 106 editoriali OCX newsletter
@@ -9,7 +9,7 @@ Ogni riga traccia l'ORIGINE (così puoi filtrare/togliere una fonte quando vuoi)
 Scarica il testo intero dagli URL (fallback al sommario se il sito blocca).
 
 Output: data/dataset.jsonl  +  data/dataset_meta.json
-Uso:    python ocx_relevance/01_build_dataset.py
+Uso:    python ocx_relevance/02_build_dataset.py
 """
 import json
 import sys
@@ -58,9 +58,10 @@ def load_editorial():
                 continue
             link = str(ws.cell(row=r, column=lc).value or "").strip() if lc else ""
             if link and link in seen:
-                continue
+                continue  # stessa notizia già presa da un altro foglio: non contarla due volte
             seen.add(link)
             note = str(ws.cell(row=r, column=nc).value or "").strip().lower() if nc else ""
+            # nota con queste parole = l'editor l'ha scartata in fase di redazione -> label negativa
             neg = any(w in note for w in ["non va", "fuori scope", "non bene", "scartato"])
             out.append({
                 "title": str(t).strip(),
@@ -98,7 +99,9 @@ def load_offtopic_negatives(exclude_titles, n=25):
 
 
 def main():
-    log("STEP 1 — costruzione dataset")
+    log("STEP 2 — costruzione dataset")
+    # 1) carica le tre componenti del dataset e le unisce (l'esclusione evita doppioni
+    # tra set-50/editoriali e i negativi off-topic pescati dal corpus)
     d50 = load_50()
     ed = load_editorial()
     exclude = {x["title"] for x in d50} | {x["title"] for x in ed}
@@ -110,6 +113,7 @@ def main():
     log(f"  off-topic manuali: {len(neg_extra):>4}  (tutti No)")
     log(f"  TOTALE:            {len(rows):>4}  (positivi={sum(x['label'] for x in rows)}, negativi={sum(1-x['label'] for x in rows)})")
 
+    # 2) scarica il testo intero dagli URL (fallback al sommario se il sito blocca), in parallelo
     log("\n  scarico il testo intero dagli URL...")
     def fetch(x):
         text, src = fetch_fulltext(x["link"], x["summary"])
@@ -121,6 +125,7 @@ def main():
     nfull = sum(1 for x in rows if x["text_source"] == "full")
     log(f"  testo intero: {nfull}/{len(rows)} ({nfull/len(rows):.0%})  fallback sommario: {len(rows)-nfull}")
 
+    # 3) salva dataset.jsonl + dataset_meta.json
     with open(DATA / "dataset.jsonl", "w", encoding="utf-8") as f:
         for i, x in enumerate(rows):
             x["id"] = i
@@ -135,6 +140,7 @@ def main():
     json.dump(meta, open(DATA / "dataset_meta.json", "w"), ensure_ascii=False, indent=2)
     log(f"\n  salvato: {DATA/'dataset.jsonl'}  ({len(rows)} righe)")
     log(f"  salvato: {DATA/'dataset_meta.json'}")
+    # 4) stampa i titoli off-topic scelti, per un controllo manuale rapido
     log("\n  ispeziona i 25 negativi off-topic scelti (controlla che siano davvero fuori tema):")
     for x in neg_extra:
         log(f"    - {x['title'][:70]}")
