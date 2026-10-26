@@ -127,3 +127,16 @@ activemq-data/
 
 # SageMath
 *.sage.py
+
+# Dati reali (contenuto articoli, selezioni editoriali, nomi di revisori) — repo pubblico,
+# questi sono output/lavoro generato o esportato a mano, non codice sorgente. Vedi anche
+# data/ e models/ sopra, stessa logica. Aggiunto in fase di riordino pre-push (26/10/2026).
+store/
+corpus/corpus_raw*.jsonl
+corpus/*_stats.json
+corpus/*_feed_report.json
+*.xlsx
+*.xls
+*.docx
+*.rtf
+results_*.jsonl
